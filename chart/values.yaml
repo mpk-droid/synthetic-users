@@ -1,0 +1,45 @@
+replicaCount: 1
+
+image:
+  repository: quay.io/your-org/synthetic-users
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8000
+
+route:
+  enabled: true
+  tls:
+    termination: edge
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 1Gi
+    cpu: "1"
+
+healthCheck:
+  path: /health
+  initialDelaySeconds: 10
+  periodSeconds: 30
+
+env:
+  MODEL: claude-sonnet-4-6
+
+postgresql:
+  enabled: true
+  auth:
+    database: synthetic_users
+    username: synthetic
+    password: synthetic
+  primary:
+    persistence:
+      size: 1Gi
+
+secrets:
+  anthropicApiKey: ""
+  vertexProjectId: ""
+  vertexRegion: ""

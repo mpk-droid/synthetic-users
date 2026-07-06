@@ -1,0 +1,6 @@
+apiVersion: v2
+name: synthetic-users
+description: AI synthetic users microservice
+version: 0.1.0
+appVersion: "0.1.0"
+type: application

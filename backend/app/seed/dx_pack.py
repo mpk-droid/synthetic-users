@@ -1,0 +1,266 @@
+"""Seed the built-in Developer Experience (DX) pack.
+
+Creates four personas (Priya, Sam, Dana, Kai) and a five-phase journey
+that covers the full developer evaluation experience. Idempotent — skips
+seeding if the built-in pack already exists.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy import select
+
+from app.db.session import async_session
+from app.engine.prompt_generator import generate_system_prompt
+from app.models.journey import Journey, JourneyPhase
+from app.models.pack import PersonaPack
+from app.models.persona import ExpertiseLevel, Persona
+
+# ── Persona definitions ──────────────────────────────────────────────
+
+_PERSONAS = [
+    {
+        "name": "Priya",
+        "identity": (
+            "Engineering Director at a mid-size enterprise. Solid technical "
+            "foundation but not hands-on day-to-day. Evaluates whether this "
+            "is viable for her team to adopt."
+        ),
+        "perspective": (
+            "Value proposition clarity, whether she can hand this to her team, "
+            "whether she can demo to leadership in 30 minutes. Catches unclear "
+            "value props, jargon-heavy docs, missing business context."
+        ),
+        "constraints": (
+            "Does not know the specific agent framework internals. Relies on "
+            "documentation and README to understand what this offers."
+        ),
+        "expertise_level": ExpertiseLevel.intermediate,
+    },
+    {
+        "name": "Sam",
+        "identity": (
+            "Backend developer whose company just decided to 'add AI.' Has "
+            "built REST APIs and deployed containers but has never worked with "
+            "LLMs, agent frameworks, or the OpenAI API spec."
+        ),
+        "perspective": (
+            "Follows instructions literally. Doesn't know what LangGraph, "
+            "CrewAI, or 'tool calling' means. Catches AI-specific jargon "
+            "without explanation, missing model configuration guidance, "
+            "assumed AI ecosystem knowledge."
+        ),
+        "constraints": (
+            "Does NOT know what MODEL_ID, BASE_URL, or API_KEY mean in the AI "
+            "context. Does not know what an 'agent framework' is. Only knows "
+            "backend development, REST APIs, and containers."
+        ),
+        "expertise_level": ExpertiseLevel.novice,
+    },
+    {
+        "name": "Dana",
+        "identity": (
+            "Senior engineer evaluating templates for productionizing a "
+            "proof-of-concept AI chatbot. Knows Python, Docker, K8s well, "
+            "has used the OpenAI API."
+        ),
+        "perspective": (
+            "Reads source code, not just docs. Tests edge cases and error "
+            "handling. Evaluates architecture for extensibility and whether "
+            "she can build a real product on this without rewriting everything."
+        ),
+        "constraints": (
+            "Knows the OpenAI API but not the specific agent framework used in "
+            "this template. Expects production-quality code patterns."
+        ),
+        "expertise_level": ExpertiseLevel.expert,
+    },
+    {
+        "name": "Kai",
+        "identity": (
+            "Platform team lead evaluating whether agents can be deployed on "
+            "their OpenShift cluster without creating toil for the platform team."
+        ),
+        "perspective": (
+            "Goes straight to Dockerfile, Helm charts, Makefile deploy targets, "
+            "values.yaml. Checks resource limits, health probes, secrets "
+            "handling, log formats. Asks: can my developer self-service this "
+            "deployment?"
+        ),
+        "constraints": (
+            "Doesn't care about conversation quality or AI capabilities. Only "
+            "cares about operational concerns: deployment, monitoring, security, "
+            "and platform standards."
+        ),
+        "expertise_level": ExpertiseLevel.expert,
+    },
+]
+
+# ── Journey phase definitions ────────────────────────────────────────
+
+_PHASES = [
+    {
+        "order": 1,
+        "name": "First Impressions",
+        "instructions": (
+            "Read the README and any top-level documentation. Understand what "
+            "this project is, what it does, and who it's for. Form initial "
+            "impressions about clarity, completeness, and whether you can "
+            "quickly understand the value proposition. Report findings for "
+            "anything unclear, missing, or confusing."
+        ),
+        "available_tools": [
+            "read_file",
+            "list_directory",
+            "report_finding",
+            "complete_phase",
+        ],
+        "requires_target_running": False,
+    },
+    {
+        "order": 2,
+        "name": "Setup",
+        "instructions": (
+            "Follow the setup and installation instructions exactly as "
+            "documented. Note any missing prerequisites, unclear steps, or "
+            "assumptions about your environment. If instructions reference "
+            "environment variables, check that they are documented with "
+            "descriptions and example values. Report any step where you would "
+            "be stuck or confused."
+        ),
+        "available_tools": [
+            "read_file",
+            "list_directory",
+            "run_command",
+            "report_finding",
+            "complete_phase",
+        ],
+        "requires_target_running": False,
+    },
+    {
+        "order": 3,
+        "name": "Running Locally",
+        "instructions": (
+            "Start the application locally following the documented process. "
+            "Verify the health endpoint works. Check that the application "
+            "starts without errors. Note any missing instructions for running "
+            "locally, port conflicts, or startup issues. Report findings for "
+            "anything that doesn't work as documented."
+        ),
+        "available_tools": [
+            "read_file",
+            "list_directory",
+            "run_command",
+            "http_request",
+            "report_finding",
+            "complete_phase",
+        ],
+        "requires_target_running": True,
+    },
+    {
+        "order": 4,
+        "name": "Using the Target",
+        "instructions": (
+            "Interact with the running application as a real user would. Send "
+            "requests to its API endpoints. Test the documented features. Try "
+            "edge cases that someone in your role would naturally try. Report "
+            "findings for broken functionality, poor error messages, missing "
+            "features, or gaps between what's documented and what actually "
+            "works."
+        ),
+        "available_tools": [
+            "read_file",
+            "list_directory",
+            "run_command",
+            "http_request",
+            "report_finding",
+            "complete_phase",
+        ],
+        "requires_target_running": True,
+    },
+    {
+        "order": 5,
+        "name": "Deployment",
+        "instructions": (
+            "Examine the deployment artifacts: Dockerfile, Helm charts, "
+            "Makefile targets, CI configuration. Evaluate whether the "
+            "deployment path is clear, production-ready, and follows best "
+            "practices. Check for resource limits, health probes, secrets "
+            "management, and security concerns. Report findings for anything "
+            "that would block or complicate deployment."
+        ),
+        "available_tools": [
+            "read_file",
+            "list_directory",
+            "run_command",
+            "report_finding",
+            "complete_phase",
+        ],
+        "requires_target_running": False,
+    },
+]
+
+
+async def seed_dx_pack() -> None:
+    """Seed the built-in DX evaluation pack if it doesn't already exist."""
+    async with async_session() as db:
+        # Check if already seeded
+        result = await db.execute(
+            select(PersonaPack).where(
+                PersonaPack.name == "Developer Experience (DX)",
+                PersonaPack.is_builtin.is_(True),
+            )
+        )
+        if result.scalar_one_or_none() is not None:
+            return
+
+        # Create the journey
+        journey = Journey(
+            name="DX Evaluation Journey",
+            description=(
+                "Five-phase developer experience evaluation covering first "
+                "impressions, setup, local development, usage, and deployment."
+            ),
+        )
+        db.add(journey)
+        await db.flush()
+
+        # Create phases
+        for phase_data in _PHASES:
+            phase = JourneyPhase(journey_id=journey.id, **phase_data)
+            db.add(phase)
+
+        # Create the pack
+        pack = PersonaPack(
+            name="Developer Experience (DX)",
+            description=(
+                "Built-in pack with four personas covering the full spectrum "
+                "of developer experience evaluation: leadership (Priya), "
+                "newcomer (Sam), senior IC (Dana), and platform/ops (Kai)."
+            ),
+            journey_id=journey.id,
+            is_builtin=True,
+        )
+        db.add(pack)
+        await db.flush()
+
+        # Create personas
+        for persona_data in _PERSONAS:
+            system_prompt = generate_system_prompt(
+                name=persona_data["name"],
+                identity=persona_data["identity"],
+                perspective=persona_data["perspective"],
+                constraints=persona_data["constraints"],
+            )
+            persona = Persona(
+                name=persona_data["name"],
+                identity=persona_data["identity"],
+                perspective=persona_data["perspective"],
+                constraints=persona_data["constraints"],
+                expertise_level=persona_data["expertise_level"],
+                system_prompt=system_prompt,
+                prompt_approved=True,
+                pack_id=pack.id,
+            )
+            db.add(persona)
+
+        await db.commit()
