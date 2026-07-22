@@ -23,7 +23,10 @@ class ToolError(Exception):
 TOOL_SCHEMAS: list[dict] = [
     {
         "name": "read_file",
-        "description": "Read a file from the target directory. Path is relative to the target root.",
+        "description": (
+            "Read a file from the workspace. "
+            "Path is relative to the repository root."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -37,7 +40,7 @@ TOOL_SCHEMAS: list[dict] = [
     },
     {
         "name": "list_directory",
-        "description": "List contents of a directory within the target directory.",
+        "description": "List contents of a directory within the workspace.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -52,8 +55,9 @@ TOOL_SCHEMAS: list[dict] = [
     {
         "name": "run_command",
         "description": (
-            "Run an allowlisted shell command in the target directory. "
-            "Allowed: make targets, cat, grep, ls, find, head, tail, wc, oc, helm, pytest, uv."
+            "Run a shell command in the workspace directory. "
+            "Common dev tools are available: git, make, npm, pip, python, "
+            "curl, docker, cargo, go, and standard CLI utilities."
         ),
         "input_schema": {
             "type": "object",
@@ -72,7 +76,10 @@ TOOL_SCHEMAS: list[dict] = [
     },
     {
         "name": "http_request",
-        "description": "Make an HTTP request. Restricted to localhost and cluster route URLs.",
+        "description": (
+            "Make an HTTP request to a URL "
+            "(typically localhost services you started)."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -148,13 +155,7 @@ TOOL_SCHEMAS: list[dict] = [
 _TOOL_SCHEMA_MAP: dict[str, dict] = {t["name"]: t for t in TOOL_SCHEMAS}
 
 ALLOWLIST_PREFIXES = (
-    "make init",
-    "make env",
-    "make test",
-    "make dry-run",
-    "make build",
-    "make deploy",
-    "make undeploy",
+    "make ",
     "cat ",
     "grep ",
     "ls ",
@@ -162,12 +163,39 @@ ALLOWLIST_PREFIXES = (
     "head ",
     "tail ",
     "wc ",
+    "git ",
+    "npm ",
+    "npx ",
+    "pip ",
+    "pip3 ",
+    "python ",
+    "python3 ",
+    "node ",
+    "curl ",
+    "docker compose",
+    "docker run",
+    "docker ps",
+    "docker logs",
+    "cargo ",
+    "go ",
+    "mvn ",
+    "gradle ",
     "oc get",
     "oc logs",
     "oc describe",
-    "helm template",
-    "python -m pytest",
+    "helm ",
     "uv ",
+    "env ",
+    "echo ",
+    "mkdir ",
+    "touch ",
+    "cp ",
+    "mv ",
+    "tar ",
+    "unzip ",
+    "which ",
+    "pwd",
+    "whoami",
 )
 
 BLOCKLIST_PATTERNS = (
@@ -187,22 +215,16 @@ MAX_FILE_CHARS = 10000
 MAX_OUTPUT_CHARS = 5000
 
 
-def get_tools_for_phase(available_tool_names: list[str]) -> list[dict]:
-    """Return tool schemas for the given tool names."""
-    return [
-        _TOOL_SCHEMA_MAP[name]
-        for name in available_tool_names
-        if name in _TOOL_SCHEMA_MAP
-    ]
+def get_all_tools() -> list[dict]:
+    """Return all available tool schemas."""
+    return list(TOOL_SCHEMAS)
 
 
 @dataclass
 class ToolContext:
     """Runtime context for tool execution during a persona's journey."""
 
-    target_dir: str
-    target_url: str | None = None
-    cluster_url: str | None = None
+    workspace_dir: str
     command_timeout: int = 120
     build_timeout: int = 300
     tool_outputs: list[tuple[str, str]] = field(default_factory=list)
@@ -264,19 +286,18 @@ async def execute_tool(
 
 def _tool_read_file(arguments: dict, ctx: ToolContext) -> str:
     path = arguments.get("path", "")
-    resolved = _resolve_safe_path(path, ctx.target_dir)
+    resolved = _resolve_safe_path(path, ctx.workspace_dir)
     content = resolved.read_text(errors="replace")
     if len(content) > MAX_FILE_CHARS:
         content = (
-            content[:MAX_FILE_CHARS]
-            + f"\n... [truncated at {MAX_FILE_CHARS} chars]"
+            content[:MAX_FILE_CHARS] + f"\n... [truncated at {MAX_FILE_CHARS} chars]"
         )
     return content
 
 
 def _tool_list_directory(arguments: dict, ctx: ToolContext) -> str:
     path = arguments.get("path", ".")
-    resolved = _resolve_safe_path(path, ctx.target_dir)
+    resolved = _resolve_safe_path(path, ctx.workspace_dir)
     if not resolved.is_dir():
         raise ToolError(f"Not a directory: {path}")
     entries = []
@@ -308,7 +329,7 @@ async def _tool_run_command(arguments: dict, ctx: ToolContext) -> str:
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
-            cwd=ctx.target_dir,
+            cwd=ctx.workspace_dir,
         )
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         output = stdout.decode(errors="replace")
@@ -319,8 +340,7 @@ async def _tool_run_command(arguments: dict, ctx: ToolContext) -> str:
 
     if len(output) > MAX_OUTPUT_CHARS:
         output = (
-            output[:MAX_OUTPUT_CHARS]
-            + f"\n... [truncated at {MAX_OUTPUT_CHARS} chars]"
+            output[:MAX_OUTPUT_CHARS] + f"\n... [truncated at {MAX_OUTPUT_CHARS} chars]"
         )
     return f"{output}\n[exit code: {proc.returncode}]"
 
@@ -338,8 +358,7 @@ async def _tool_http_request(arguments: dict, ctx: ToolContext) -> str:
     result = f"HTTP {response.status_code}\n{response.text}"
     if len(result) > MAX_OUTPUT_CHARS:
         result = (
-            result[:MAX_OUTPUT_CHARS]
-            + f"\n... [truncated at {MAX_OUTPUT_CHARS} chars]"
+            result[:MAX_OUTPUT_CHARS] + f"\n... [truncated at {MAX_OUTPUT_CHARS} chars]"
         )
     return result
 
@@ -365,26 +384,26 @@ def _tool_report_finding(
     ctx.findings.append(finding)
 
     status = (
-        "verified"
-        if verified
-        else "UNVERIFIED (evidence not found in tool outputs)"
+        "verified" if verified else "UNVERIFIED (evidence not found in tool outputs)"
     )
-    return f"Finding recorded [{arguments['severity']}]: {arguments['title']} ({status})"
+    return (
+        f"Finding recorded [{arguments['severity']}]: {arguments['title']} ({status})"
+    )
 
 
-def _resolve_safe_path(relative: str, target_dir: str) -> Path:
+def _resolve_safe_path(relative: str, workspace_dir: str) -> Path:
     if ".." in relative.split(os.sep):
         raise ToolError(f"Path traversal not allowed: {relative}")
 
-    root = Path(target_dir).resolve()
+    root = Path(workspace_dir).resolve()
     resolved = (root / relative).resolve()
 
     if not resolved.is_relative_to(root):
-        raise ToolError(f"Path escapes target directory: {relative}")
+        raise ToolError(f"Path escapes workspace directory: {relative}")
     if resolved.is_symlink():
-        target = resolved.resolve()
-        if not target.is_relative_to(root):
-            raise ToolError(f"Symlink target outside target directory: {relative}")
+        link_target = resolved.resolve()
+        if not link_target.is_relative_to(root):
+            raise ToolError(f"Symlink target outside workspace: {relative}")
     if not resolved.exists():
         raise ToolError(f"Path does not exist: {relative}")
 
@@ -397,9 +416,5 @@ def _validate_url(url: str, ctx: ToolContext) -> None:
 
     if host in {"localhost", "127.0.0.1", "0.0.0.0", "::1"}:
         return
-    if ctx.target_url and host and ctx.target_url in url:
-        return
-    if ctx.cluster_url and host and ctx.cluster_url in url:
-        return
 
-    raise ToolError(f"URL not allowed (only localhost and cluster routes): {url}")
+    raise ToolError(f"URL not allowed (only localhost URLs): {url}")

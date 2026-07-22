@@ -116,8 +116,6 @@ async def create_phase(
         order=next_order,
         name=data.name,
         instructions=data.instructions,
-        available_tools=data.available_tools,
-        requires_target_running=data.requires_target_running,
     )
     db.add(phase)
     await db.commit()

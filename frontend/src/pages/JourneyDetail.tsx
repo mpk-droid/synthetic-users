@@ -14,15 +14,11 @@ import type { JourneyPhaseResponse } from '../types';
 interface PhaseFormData {
   name: string;
   instructions: string;
-  available_tools: string;
-  requires_target_running: boolean;
 }
 
 const emptyPhaseForm: PhaseFormData = {
   name: '',
   instructions: '',
-  available_tools: '',
-  requires_target_running: false,
 };
 
 export default function JourneyDetail() {
@@ -67,11 +63,6 @@ export default function JourneyDetail() {
       createJourneyPhase(id!, {
         name: phaseForm.name,
         instructions: phaseForm.instructions,
-        available_tools: phaseForm.available_tools
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean),
-        requires_target_running: phaseForm.requires_target_running,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['journey', id] });
@@ -85,11 +76,6 @@ export default function JourneyDetail() {
       updateJourneyPhase(id!, phaseId, {
         name: editPhaseForm.name,
         instructions: editPhaseForm.instructions,
-        available_tools: editPhaseForm.available_tools
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean),
-        requires_target_running: editPhaseForm.requires_target_running,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['journey', id] });
@@ -123,8 +109,6 @@ export default function JourneyDetail() {
     setEditPhaseForm({
       name: phase.name,
       instructions: phase.instructions,
-      available_tools: phase.available_tools.join(', '),
-      requires_target_running: phase.requires_target_running,
     });
   };
 
@@ -211,27 +195,6 @@ export default function JourneyDetail() {
                 required
               />
             </div>
-            <div className="form-group">
-              <label>Available Tools (comma-separated)</label>
-              <input
-                type="text"
-                value={phaseForm.available_tools}
-                onChange={(e) => setPhaseForm((p) => ({ ...p, available_tools: e.target.value }))}
-                placeholder="e.g., browser, file_reader"
-              />
-            </div>
-            <div className="form-group form-group--checkbox">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={phaseForm.requires_target_running}
-                  onChange={(e) =>
-                    setPhaseForm((p) => ({ ...p, requires_target_running: e.target.checked }))
-                  }
-                />
-                Requires target running
-              </label>
-            </div>
             <button
               className="btn btn--primary"
               onClick={() => addPhaseMutation.mutate()}
@@ -265,31 +228,6 @@ export default function JourneyDetail() {
                       }
                     />
                   </div>
-                  <div className="form-group">
-                    <label>Available Tools (comma-separated)</label>
-                    <input
-                      type="text"
-                      value={editPhaseForm.available_tools}
-                      onChange={(e) =>
-                        setEditPhaseForm((p) => ({ ...p, available_tools: e.target.value }))
-                      }
-                    />
-                  </div>
-                  <div className="form-group form-group--checkbox">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={editPhaseForm.requires_target_running}
-                        onChange={(e) =>
-                          setEditPhaseForm((p) => ({
-                            ...p,
-                            requires_target_running: e.target.checked,
-                          }))
-                        }
-                      />
-                      Requires target running
-                    </label>
-                  </div>
                   <div className="form-actions">
                     <button
                       className="btn btn--primary"
@@ -309,9 +247,6 @@ export default function JourneyDetail() {
                     <div className="phase-header-left">
                       <span className="phase-order">{phase.order}</span>
                       <h4 className="phase-name">{phase.name}</h4>
-                      {phase.requires_target_running && (
-                        <span className="badge badge--outline">requires target</span>
-                      )}
                     </div>
                     <div className="phase-header-right">
                       <button
@@ -361,16 +296,6 @@ export default function JourneyDetail() {
                   {expandedPhases.has(phase.id) && (
                     <div className="phase-body">
                       <p className="phase-instructions">{phase.instructions}</p>
-                      {phase.available_tools.length > 0 && (
-                        <div className="phase-tools">
-                          <strong>Tools:</strong>{' '}
-                          {phase.available_tools.map((t) => (
-                            <span key={t} className="badge badge--outline">
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )}
                 </>

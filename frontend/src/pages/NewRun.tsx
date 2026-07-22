@@ -18,8 +18,7 @@ export default function NewRun() {
 
   const [form, setForm] = useState({
     name: '',
-    target_url: '',
-    target_dir: '',
+    repo_url: '',
     persona_ids: [] as string[],
     journey_id: '',
     model: 'claude-sonnet-4-6',
@@ -29,8 +28,7 @@ export default function NewRun() {
     mutationFn: async () => {
       const job = await createJob({
         name: form.name,
-        target_url: form.target_url || null,
-        target_dir: form.target_dir || null,
+        repo_url: form.repo_url,
         persona_ids: form.persona_ids,
         journey_id: form.journey_id,
         model: form.model,
@@ -65,7 +63,7 @@ export default function NewRun() {
     form.name &&
     form.persona_ids.length > 0 &&
     form.journey_id &&
-    (form.target_url || form.target_dir);
+    form.repo_url;
 
   return (
     <div className="page">
@@ -86,27 +84,16 @@ export default function NewRun() {
           />
         </div>
 
-        <div className="form-row">
-          <div className="form-group">
-            <label htmlFor="target_dir">Target Directory</label>
-            <input
-              id="target_dir"
-              type="text"
-              value={form.target_dir}
-              onChange={(e) => setForm((p) => ({ ...p, target_dir: e.target.value }))}
-              placeholder="/path/to/project"
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="target_url">Target URL</label>
-            <input
-              id="target_url"
-              type="text"
-              value={form.target_url}
-              onChange={(e) => setForm((p) => ({ ...p, target_url: e.target.value }))}
-              placeholder="https://my-app.example.com"
-            />
-          </div>
+        <div className="form-group">
+          <label htmlFor="repo_url">Repository URL</label>
+          <input
+            id="repo_url"
+            type="text"
+            value={form.repo_url}
+            onChange={(e) => setForm((p) => ({ ...p, repo_url: e.target.value }))}
+            placeholder="https://github.com/org/repo.git"
+            required
+          />
         </div>
 
         <div className="form-group">

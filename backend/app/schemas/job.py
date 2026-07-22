@@ -8,8 +8,7 @@ from pydantic import BaseModel, Field
 
 class JobCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
-    target_url: str | None = None
-    target_dir: str | None = None
+    repo_url: str = Field(..., min_length=1)
     persona_ids: list[uuid.UUID]
     journey_id: uuid.UUID
     model: str = "claude-sonnet-4-6"
@@ -34,8 +33,7 @@ class RunResponse(BaseModel):
 class JobResponse(BaseModel):
     id: uuid.UUID
     name: str
-    target_url: str | None
-    target_dir: str | None
+    repo_url: str
     persona_ids: list[uuid.UUID]
     journey_id: uuid.UUID
     model: str
@@ -43,3 +41,17 @@ class JobResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class AgentStatusUpdate(BaseModel):
+    persona_id: str
+    current_phase: str
+
+
+class AgentDonePayload(BaseModel):
+    persona_id: str
+    status: str  # completed or blocked
+    phase_summaries: dict[str, str] = Field(default_factory=dict)
+    findings: list[dict] = Field(default_factory=list)
+    blocked_phase: str | None = None
+    blocked_reason: str | None = None

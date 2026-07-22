@@ -27,7 +27,21 @@ healthCheck:
   periodSeconds: 30
 
 env:
+  SU_ROLE: orchestrator
   MODEL: claude-sonnet-4-6
+
+agent:
+  image:
+    repository: quay.io/your-org/synthetic-users
+    tag: latest
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 2Gi
+      cpu: "2"
+  timeout: 1800
 
 postgresql:
   enabled: true

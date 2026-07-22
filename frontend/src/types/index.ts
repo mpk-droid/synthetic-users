@@ -33,24 +33,18 @@ export interface JourneyPhaseResponse {
   order: number;
   name: string;
   instructions: string;
-  available_tools: string[];
-  requires_target_running: boolean;
   created_at: string;
 }
 
 export interface JourneyPhaseCreate {
   name: string;
   instructions: string;
-  available_tools: string[];
-  requires_target_running: boolean;
   order?: number;
 }
 
 export interface JourneyPhaseUpdate {
   name?: string;
   instructions?: string;
-  available_tools?: string[];
-  requires_target_running?: boolean;
   order?: number;
 }
 
@@ -86,8 +80,7 @@ export interface PackResponse {
 
 export interface JobCreate {
   name: string;
-  target_url?: string | null;
-  target_dir?: string | null;
+  repo_url: string;
   persona_ids: string[];
   journey_id: string;
   model: string;
@@ -97,8 +90,7 @@ export interface JobCreate {
 export interface JobResponse {
   id: string;
   name: string;
-  target_url: string | null;
-  target_dir: string | null;
+  repo_url: string;
   persona_ids: string[];
   journey_id: string;
   model: string;
@@ -152,4 +144,23 @@ export interface RunDetailResponse {
   error: string | null;
   created_at: string;
   personas: RunPersonaDetail[];
+}
+
+export interface GlobalFindingResponse {
+  id: string;
+  repo_url: string;
+  severity: string;
+  category: string;
+  title: string;
+  description: string;
+  evidence: string;
+  file_path: string | null;
+  suggestion: string | null;
+  first_seen_run_id: string;
+  last_seen_run_id: string;
+  seen_count: number;
+  persona_names: string[];
+  status: string;
+  created_at: string;
+  updated_at: string;
 }

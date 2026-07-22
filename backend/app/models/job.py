@@ -39,8 +39,7 @@ class Job(TimestampMixin, Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(255))
-    target_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    target_dir: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    repo_url: Mapped[str] = mapped_column(String(2048))
     persona_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)))
     journey_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("journeys.id")
@@ -103,6 +102,7 @@ class RunPersona(Base):
     status: Mapped[RunPersonaStatus] = mapped_column(
         Enum(RunPersonaStatus), default=RunPersonaStatus.pending
     )
+    current_phase: Mapped[str | None] = mapped_column(String(255), nullable=True)
     blocked_phase: Mapped[str | None] = mapped_column(String(255), nullable=True)
     blocked_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     phase_summaries: Mapped[dict] = mapped_column(JSONB, default=dict)

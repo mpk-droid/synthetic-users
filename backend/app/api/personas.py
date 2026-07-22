@@ -65,7 +65,9 @@ async def update_persona(
         if key == "expertise_level" and value is not None:
             value = ExpertiseLevel(value)
         setattr(persona, key, value)
-    if any(k in update_data for k in ("identity", "perspective", "constraints", "name")):
+    if any(
+        k in update_data for k in ("identity", "perspective", "constraints", "name")
+    ):
         persona.prompt_approved = False
     await db.commit()
     await db.refresh(persona)
@@ -82,9 +84,7 @@ async def delete_persona(persona_id: uuid.UUID, db: AsyncSession = Depends(get_d
 
 
 @router.post("/{persona_id}/generate-prompt", response_model=PersonaResponse)
-async def regenerate_prompt(
-    persona_id: uuid.UUID, db: AsyncSession = Depends(get_db)
-):
+async def regenerate_prompt(persona_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     persona = await db.get(Persona, persona_id)
     if not persona:
         raise HTTPException(404, "Persona not found")
@@ -101,9 +101,7 @@ async def regenerate_prompt(
 
 
 @router.post("/{persona_id}/approve-prompt", response_model=PersonaResponse)
-async def approve_prompt(
-    persona_id: uuid.UUID, db: AsyncSession = Depends(get_db)
-):
+async def approve_prompt(persona_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     persona = await db.get(Persona, persona_id)
     if not persona:
         raise HTTPException(404, "Persona not found")

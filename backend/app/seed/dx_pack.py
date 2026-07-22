@@ -108,74 +108,44 @@ _PHASES = [
             "quickly understand the value proposition. Report findings for "
             "anything unclear, missing, or confusing."
         ),
-        "available_tools": [
-            "read_file",
-            "list_directory",
-            "report_finding",
-            "complete_phase",
-        ],
-        "requires_target_running": False,
     },
     {
         "order": 2,
         "name": "Setup",
         "instructions": (
             "Follow the setup and installation instructions exactly as "
-            "documented. Note any missing prerequisites, unclear steps, or "
+            "documented. Install any prerequisites and dependencies as "
+            "described. Note any missing prerequisites, unclear steps, or "
             "assumptions about your environment. If instructions reference "
             "environment variables, check that they are documented with "
             "descriptions and example values. Report any step where you would "
             "be stuck or confused."
         ),
-        "available_tools": [
-            "read_file",
-            "list_directory",
-            "run_command",
-            "report_finding",
-            "complete_phase",
-        ],
-        "requires_target_running": False,
     },
     {
         "order": 3,
         "name": "Running Locally",
         "instructions": (
-            "Start the application locally following the documented process. "
-            "Verify the health endpoint works. Check that the application "
-            "starts without errors. Note any missing instructions for running "
-            "locally, port conflicts, or startup issues. Report findings for "
-            "anything that doesn't work as documented."
+            "Follow the README instructions to start the application locally. "
+            "Figure out what commands to run, what ports the application uses, "
+            "and how to verify it is working. If the documentation does not "
+            "clearly explain how to run the application, that is a finding. "
+            "Report any missing instructions, startup errors, port conflicts, "
+            "or anything that does not work as documented."
         ),
-        "available_tools": [
-            "read_file",
-            "list_directory",
-            "run_command",
-            "http_request",
-            "report_finding",
-            "complete_phase",
-        ],
-        "requires_target_running": True,
     },
     {
         "order": 4,
         "name": "Using the Target",
         "instructions": (
-            "Interact with the running application as a real user would. Send "
-            "requests to its API endpoints. Test the documented features. Try "
-            "edge cases that someone in your role would naturally try. Report "
-            "findings for broken functionality, poor error messages, missing "
-            "features, or gaps between what's documented and what actually "
-            "works."
+            "Discover the application's API endpoints and features by reading "
+            "documentation and source code. Interact with the running "
+            "application by making HTTP requests to the endpoints you have "
+            "found. Test the documented features and try edge cases that "
+            "someone in your role would naturally try. Report findings for "
+            "broken functionality, poor error messages, missing features, or "
+            "gaps between what is documented and what actually works."
         ),
-        "available_tools": [
-            "read_file",
-            "list_directory",
-            "run_command",
-            "http_request",
-            "report_finding",
-            "complete_phase",
-        ],
-        "requires_target_running": True,
     },
     {
         "order": 5,
@@ -188,14 +158,6 @@ _PHASES = [
             "management, and security concerns. Report findings for anything "
             "that would block or complicate deployment."
         ),
-        "available_tools": [
-            "read_file",
-            "list_directory",
-            "run_command",
-            "report_finding",
-            "complete_phase",
-        ],
-        "requires_target_running": False,
     },
 ]
 

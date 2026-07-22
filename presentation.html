@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synthetic Users</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Red Hat Display', 'Helvetica Neue', Arial, sans-serif; background: #1a1a1a; color: #fff; overflow: hidden; }
+  @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700;900&family=Red+Hat+Text:wght@400;500;700&display=swap');
+
+  .slide { display: none; width: 100vw; min-height: 100vh; padding: 60px 80px; flex-direction: column; justify-content: center; position: relative; overflow-y: auto; }
+  .slide.active { display: flex; }
+  body { overflow-y: auto; }
+  .slide::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px; background: #e00; }
+
+  /* Nav */
+  .nav { position: fixed; bottom: 30px; right: 40px; font-size: 14px; color: #666; z-index: 100; font-family: 'Red Hat Text', sans-serif; }
+
+  /* Typography */
+  h1 { font-size: 64px; font-weight: 900; line-height: 1.1; }
+  h2 { font-size: 48px; font-weight: 700; line-height: 1.2; margin-bottom: 32px; }
+  h3 { font-size: 28px; font-weight: 700; margin-bottom: 16px; }
+  p, li { font-size: 22px; line-height: 1.6; font-family: 'Red Hat Text', sans-serif; color: #ccc; }
+  li { margin-bottom: 12px; }
+  ul { list-style: none; padding-left: 0; }
+  ul li::before { content: ''; display: inline-block; width: 8px; height: 8px; background: #e00; border-radius: 50%; margin-right: 14px; vertical-align: middle; }
+
+  .accent { color: #e00; }
+  .subtitle { font-size: 28px; color: #999; font-weight: 400; margin-top: 16px; font-family: 'Red Hat Text', sans-serif; }
+  .meta { font-size: 18px; color: #666; margin-top: 40px; font-family: 'Red Hat Text', sans-serif; }
+  a { color: #4dabf7; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Center slide */
+  .center { align-items: center; text-align: center; }
+
+  /* Two column */
+  .columns { display: flex; gap: 60px; flex: 1; align-items: flex-start; margin-top: 20px; }
+  .col { flex: 1; }
+
+  /* Architecture diagram */
+  .diagram { background: #222; border-radius: 12px; padding: 40px; margin-top: 24px; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .diagram pre { font-size: 15px; line-height: 1.5; color: #ddd; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; font-family: 'Red Hat Text', sans-serif; }
+  th { text-align: left; padding: 14px 16px; font-size: 18px; font-weight: 700; color: #e00; border-bottom: 2px solid #333; }
+  td { padding: 12px 16px; font-size: 18px; color: #ccc; border-bottom: 1px solid #2a2a2a; }
+  tr:hover td { background: #252525; }
+
+  /* Boxes */
+  .box { background: #252525; border: 1px solid #333; border-radius: 10px; padding: 24px 28px; margin-bottom: 16px; }
+  .box h3 { margin-bottom: 8px; font-size: 22px; }
+  .box p { font-size: 18px; }
+  .box-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+
+  /* Pros/Cons */
+  .pro li::before { background: #2ecc71; }
+  .con li::before { background: #e74c3c; }
+
+  /* Deployment diagram boxes */
+  .deploy-diagram { display: flex; gap: 40px; margin-top: 30px; align-items: flex-start; }
+  .deploy-box { background: #252525; border: 1px solid #444; border-radius: 12px; padding: 28px; flex: 1; min-height: 200px; }
+  .deploy-box h3 { color: #e00; font-size: 20px; margin-bottom: 16px; }
+  .deploy-box .inner-box { background: #1a1a1a; border: 1px solid #555; border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; font-size: 16px; color: #ddd; font-family: 'Red Hat Text', sans-serif; text-align: center; }
+  .deploy-arrow { display: flex; align-items: center; justify-content: center; font-size: 32px; color: #666; padding-top: 60px; }
+  .deploy-label { font-size: 14px; color: #888; text-align: center; margin-top: 8px; font-family: 'Red Hat Text', sans-serif; }
+</style>
+</head>
+<body>
+
+<!-- Slide 1: Title -->
+<div class="slide center" id="s1">
+  <h1>Synthetic Users</h1>
+  <p class="subtitle">Automated Developer Experience Testing</p>
+  <p class="meta">Muthukumaran PK &middot; Tooling Experience &middot; July 2026</p>
+</div>
+
+<!-- Slide 2: Why? -->
+<div class="slide center" id="s2">
+  <h1>Why<span class="accent">?</span></h1>
+</div>
+
+<!-- Slide 3: The Problem -->
+<div class="slide" id="s3">
+  <h2>We don't have confidence about the<br><span class="accent">Developer Experience</span></h2>
+  <ul style="margin-top: 30px;">
+    <li>We ship repos — starter kits, templates, tools</li>
+    <li>We have no way to know how easy it is for developers to use them
+      <ul style="margin-top: 10px; margin-left: 22px;">
+        <li style="font-size: 19px; color: #999;">Is the onboarding seamless? Are there gaps in docs? Are there hurdles?</li>
+      </ul>
+    </li>
+    <li>As it is today, the only way we find issues is when customers complain</li>
+    <li>We want to find out <strong style="color:#fff;">before</strong> they do</li>
+  </ul>
+</div>
+
+<!-- Slide 4: What We Built -->
+<div class="slide" id="s4">
+  <h2>Synthetic Users</h2>
+  <p style="font-size: 26px; color: #ddd; margin-bottom: 30px;">
+    Give it a <strong style="color:#fff;">git repo URL</strong>. It spins up AI personas that independently
+    clone the repo and evaluate it like real developers.
+  </p>
+  <div class="box-grid">
+    <div class="box">
+      <h3>Priya</h3>
+      <p>Engineering Director — evaluates value prop & adoptability</p>
+    </div>
+    <div class="box">
+      <h3>Sam</h3>
+      <p>Backend dev, new to AI — follows docs literally, catches jargon</p>
+    </div>
+    <div class="box">
+      <h3>Dana</h3>
+      <p>Senior engineer — reads source code, tests edge cases</p>
+    </div>
+    <div class="box">
+      <h3>Kai</h3>
+      <p>Platform lead — only cares about Dockerfile, Helm, deploy</p>
+    </div>
+  </div>
+  <p style="margin-top: 24px;">
+    <a href="https://github.com/mpk-droid/synthetic-users" target="_blank">github.com/mpk-droid/synthetic-users</a>
+  </p>
+</div>
+
+<!-- Slide 5: Architecture -->
+<div class="slide" id="s5">
+  <h2>Architecture</h2>
+  <div class="diagram">
+<pre>
+  repo_url ──▶ ┌──────────────────────┐
+               │    Orchestrator      │
+               │   FastAPI + Postgres │
+               └──────────┬───────────┘
+                          │
+            ┌─────────────┼─────────────┐
+            │             │             │
+     ┌──────▼──────┐ ┌────▼───────┐ ┌───▼────────┐
+     │  Agent:     │ │  Agent:    │ │  Agent:    │
+     │  Priya      │ │  Sam       │ │  Dana      │  ...
+     │ (container) │ │ (container)│ │ (container)│
+     └──────┬──────┘ └─────┬──────┘ └─────┬──────┘
+            │              │              │
+       git clone      git clone      git clone
+       read docs      follow setup   read source
+       run commands   try to run     test edges
+            │              │              │
+            └──────▶ Findings ◀───────────┘
+                          │
+                  Deduplicate & Score
+                  (GREEN / YELLOW / RED)
+</pre>
+  </div>
+</div>
+
+<!-- Slide 6: Deployment View -->
+<div class="slide" id="s6">
+  <h2>Deployment View</h2>
+  <div style="display: flex; flex-direction: column; gap: 24px; margin-top: 16px;">
+
+    <!-- Cluster deployment -->
+    <div style="border: 2px dashed #555; border-radius: 14px; padding: 24px 28px;">
+      <h3 style="color: #e00; font-size: 18px; margin-bottom: 16px;">Cluster (OpenShift / Kubernetes)</h3>
+      <div style="display: flex; gap: 24px; align-items: center;">
+        <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px;">
+          <div class="inner-box" style="background: #1e2a1e; border-color: #3a5a3a;">
+            Orchestrator Pod
+            <div style="font-size: 13px; color: #888; margin-top: 4px;">FastAPI + Postgres</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <div class="inner-box" style="flex:1;">Agent Pod 1</div>
+            <div class="inner-box" style="flex:1;">Agent Pod 2</div>
+            <div class="inner-box" style="flex:1;">Agent Pod N</div>
+          </div>
+          <div class="inner-box" style="background: #1e1e2a; border-color: #3a3a5a;">
+            UI (React)
+          </div>
+        </div>
+        <div style="font-size: 28px; color: #555;">◀──</div>
+        <div style="flex: 0.6;">
+          <div class="inner-box" style="background: #2a1e1e; border-color: #5a3a3a;">
+            CI Pipeline
+            <div style="font-size: 13px; color: #888; margin-top: 4px;">Jenkins / GitHub Actions</div>
+          </div>
+          <p style="font-size: 13px; color: #666; margin-top: 6px; text-align: center;">Nightly runs, consumes scored results</p>
+          <p style="font-size: 12px; color: #e00; margin-top: 6px; text-align: center;">* ~10–15 min per persona (LLM tool-use loop)</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Local deployment -->
+    <div style="border: 2px dashed #555; border-radius: 14px; padding: 24px 28px;">
+      <h3 style="color: #e00; font-size: 18px; margin-bottom: 16px;">Local</h3>
+      <div style="display: flex; gap: 24px; align-items: center;">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+          <div class="inner-box" style="background: #1e2a1e; border-color: #3a5a3a;">
+            Orchestrator Container
+            <div style="font-size: 13px; color: #888; margin-top: 4px;">docker compose up</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <div class="inner-box" style="flex:1;">Agent Container 1</div>
+            <div class="inner-box" style="flex:1;">Agent Container 2</div>
+            <div class="inner-box" style="flex:1;">Agent Container N</div>
+          </div>
+          <div class="inner-box" style="background: #1e1e2a; border-color: #3a3a5a;">
+            UI (React)
+          </div>
+        </div>
+        <div style="flex: 0.5;">
+          <p style="font-size: 14px; color: #888; text-align: center;">Same image, same code<br>Agents spawned via Docker socket</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Slide 7: Common & Different -->
+<div class="slide center" id="s7">
+  <h1>What's common and different with<br><span class="accent">Workflow Validation</span>?</h1>
+</div>
+
+<!-- Slide 8: Comparison -->
+<div class="slide" id="s8">
+  <h2>Synthetic Users vs Workflow Validation</h2>
+  <div class="columns">
+    <div class="col">
+      <h3 style="color: #2ecc71;">In Common</h3>
+      <ul>
+        <li>AI agents acting as users</li>
+        <li>Persona-driven evaluation</li>
+        <li>Journey / phase-based execution</li>
+        <li>Rich findings with evidence</li>
+        <li>Targeting RHOAI ecosystem</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3 style="color: #e74c3c;">Different</h3>
+      <table>
+        <tr><th></th><th>Workflow Val.</th><th>Synthetic Users</th></tr>
+        <tr><td><strong>Target</strong></td><td>Running RHOAI product</td><td>Git repos & templates</td></tr>
+        <tr><td><strong>How it tests</strong></td><td>Operates a real browser</td><td>Operates a real terminal</td></tr>
+        <tr><td><strong>Tests</strong></td><td>Customer workflows</td><td>Developer onboarding</td></tr>
+        <tr><td><strong>Stack</strong></td><td>TypeScript + Agent SDK</td><td>Python + Anthropic SDK</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Slide 9: Should We Integrate? -->
+<div class="slide center" id="s9">
+  <h1>Should we integrate this into<br><span class="accent">Workflow Validation</span>?</h1>
+</div>
+
+<!-- Slide 10: What It Would Take -->
+<div class="slide" id="s10">
+  <h2>What would integration look like?</h2>
+  <div class="columns" style="margin-top: 20px;">
+    <div class="col">
+      <h3 style="color: #999;">Today (separate)</h3>
+      <h3 style="font-size: 18px; color: #e00; margin-top: 12px;">Synthetic Users</h3>
+      <ul>
+        <li>Standalone app with own UI & DB</li>
+        <li>Own orchestrator, own agent containers</li>
+        <li>Own persona & journey definitions</li>
+        <li>Tests repos via terminal (CLI tools)</li>
+      </ul>
+      <h3 style="font-size: 18px; color: #e00; margin-top: 16px;">Workflow Validation</h3>
+      <ul>
+        <li>Director orchestrates Performers</li>
+        <li>Performer controls browser via Playwright</li>
+        <li>Tests running RHOAI product via UI</li>
+        <li>CI pipeline, dashboard, insights pipeline</li>
+      </ul>
+      <p style="font-size: 16px; color: #e74c3c; margin-top: 12px;">No connection between the two</p>
+    </div>
+    <div class="col">
+      <h3 style="color: #2ecc71;">After Integration</h3>
+      <ul>
+        <li>Our engine becomes a <strong style="color:#fff;">CLI Performer plugin</strong> in the Director</li>
+        <li>Director sends: persona + journey + repo URL</li>
+        <li>We send back: findings + score</li>
+        <li>Shared <strong style="color:#fff;">persona & journey spec format</strong></li>
+        <li>DX findings feed into <strong style="color:#fff;">Customer Insights</strong></li>
+        <li>Scores show up in <strong style="color:#fff;">Workflow Validation Dashboard</strong></li>
+        <li>Same <strong style="color:#fff;">CI pipeline</strong> — nightly runs, JUnit XML</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Slide 11: Pros & Cons -->
+<div class="slide" id="s11">
+  <h2>Pros & Cons of Integrating</h2>
+  <div class="columns">
+    <div class="col">
+      <h3 style="color: #2ecc71;">Pros</h3>
+      <ul class="pro">
+        <li>One team, one framework, one dashboard</li>
+        <li>Shared CI infrastructure & cluster lifecycle</li>
+        <li>Customer Insights feeds both test types</li>
+        <li>Broader coverage — product + developer experience</li>
+        <li>No duplicated effort on personas, journeys, reporting</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3 style="color: #e74c3c;">Cons</h3>
+      <ul class="con">
+        <li>Different stacks (TypeScript vs Python) — integration cost</li>
+        <li>Different test targets (browser vs CLI) may not share much code</li>
+        <li>Risk of slowing both teams while integrating</li>
+        <li>Synthetic Users is early — may need to mature before merging</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Slide 12: Next Steps -->
+<div class="slide" id="s12">
+  <h2>Questions & Next Steps</h2>
+  <ul style="margin-top: 20px;">
+    <li>Should we wait until Synthetic Users gains more traction and maturity before integrating?</li>
+    <li>Would it make sense to have customer workflow testing and developer experience testing under one repo?</li>
+    <li>What's the right level of integration to start with?</li>
+  </ul>
+</div>
+
+<!-- Slide 13: Thank You -->
+<div class="slide center" id="s13">
+  <h1>Thank You<span class="accent">!</span></h1>
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+  <span id="counter">1 / 12</span>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let current = 0;
+
+  function show(n) {
+    slides.forEach(s => s.classList.remove('active'));
+    current = Math.max(0, Math.min(n, slides.length - 1));
+    slides[current].classList.add('active');
+    document.getElementById('counter').textContent = `${current + 1} / ${slides.length}`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); show(current + 1); }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); show(current - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+  });
+
+  // Touch support
+  let touchX = 0;
+  document.addEventListener('touchstart', e => touchX = e.touches[0].clientX);
+  document.addEventListener('touchend', e => {
+    const diff = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(diff) > 50) show(current + (diff < 0 ? 1 : -1));
+  });
+
+  show(0);
+</script>
+</body>
+</html>

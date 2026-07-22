@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
@@ -11,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.session import async_session, get_db
-from app.engine.runner import execute_run
+from app.engine.runner import execute_orchestrated_run
 from app.models.finding import Finding as FindingModel
 from app.models.finding import Severity
 from app.models.job import (
@@ -20,11 +21,16 @@ from app.models.job import (
     RunPersona,
     RunPersonaStatus,
     RunStatus,
-    TrafficLight,
 )
 from app.models.persona import Persona
 from app.schemas.finding import FindingResponse
-from app.schemas.job import JobCreate, JobResponse, RunResponse
+from app.schemas.job import (
+    AgentDonePayload,
+    AgentStatusUpdate,
+    JobCreate,
+    JobResponse,
+    RunResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +38,7 @@ router = APIRouter()
 
 
 async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
-    """Background task: load job config from DB, execute the engine, persist results."""
+    """Background task: load job config, spin up agents, wait, score."""
     async with async_session() as db:
         job = await db.get(Job, job_id)
         if not job:
@@ -40,9 +46,7 @@ async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
             return
 
         result = await db.execute(
-            select(Run)
-            .options(selectinload(Run.run_personas))
-            .where(Run.id == run_id)
+            select(Run).options(selectinload(Run.run_personas)).where(Run.id == run_id)
         )
         run = result.scalar_one_or_none()
         if not run:
@@ -56,7 +60,7 @@ async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
         persona_rows = personas_result.scalars().all()
         persona_map = {p.id: p for p in persona_rows}
 
-        from app.models.journey import Journey, JourneyPhase
+        from app.models.journey import Journey
 
         journey_result = await db.execute(
             select(Journey)
@@ -93,96 +97,40 @@ async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
                 {
                     "name": phase.name,
                     "instructions": phase.instructions,
-                    "available_tools": phase.available_tools or [],
-                    "requires_target_running": phase.requires_target_running,
                     "order": phase.order,
                 }
             )
 
-        rp_map: dict[str, RunPersona] = {}
+        run_persona_map = {}
         for rp in run.run_personas:
-            rp_map[str(rp.persona_id)] = rp
+            run_persona_map[str(rp.persona_id)] = str(rp.id)
 
-        async def update_callback(
-            rid: uuid.UUID | str, updates: dict
-        ) -> None:
-            async with async_session() as cb_db:
-                if "persona_id" in updates and "persona_status" in updates:
-                    pid = updates["persona_id"]
-                    rp = rp_map.get(str(pid) if not isinstance(pid, str) else pid)
-                    if rp:
-                        cb_result = await cb_db.execute(
-                            select(RunPersona).where(RunPersona.id == rp.id)
-                        )
-                        cb_rp = cb_result.scalar_one_or_none()
-                        if cb_rp:
-                            cb_rp.status = RunPersonaStatus(
-                                updates["persona_status"]
-                            )
-                            if updates.get("phase_summaries"):
-                                cb_rp.phase_summaries = updates["phase_summaries"]
-                            if updates.get("blocked_phase"):
-                                cb_rp.blocked_phase = updates["blocked_phase"]
-                            if updates.get("blocked_reason"):
-                                cb_rp.blocked_reason = updates["blocked_reason"]
+        run.status = RunStatus.running
+        run.started_at = datetime.now(timezone.utc)
+        await db.commit()
 
-                            for f_data in updates.get("findings", []):
-                                finding = FindingModel(
-                                    run_persona_id=cb_rp.id,
-                                    severity=Severity(f_data["severity"]),
-                                    category=f_data["category"],
-                                    title=f_data["title"],
-                                    description=f_data["description"],
-                                    evidence=f_data["evidence"],
-                                    file_path=f_data.get("file_path"),
-                                    line_range=f_data.get("line_range"),
-                                    suggestion=f_data.get("suggestion"),
-                                    phase=f_data.get("phase", ""),
-                                    verified=f_data.get("verified", True),
-                                )
-                                cb_db.add(finding)
+    try:
+        await execute_orchestrated_run(
+            run_id=str(run_id),
+            personas=personas,
+            phases=phases,
+            model=job.model,
+            config=job.config or {},
+            repo_url=job.repo_url,
+            run_persona_map=run_persona_map,
+        )
+    except Exception as e:
+        logger.exception("Run %s failed", run_id)
+        async with async_session() as err_db:
+            err_result = await err_db.execute(select(Run).where(Run.id == run_id))
+            err_run = err_result.scalar_one_or_none()
+            if err_run:
+                err_run.status = RunStatus.failed
+                err_run.error = str(e)
+                await err_db.commit()
 
-                            await cb_db.commit()
 
-                if "status" in updates and "persona_id" not in updates:
-                    cb_result = await cb_db.execute(
-                        select(Run).where(Run.id == run_id)
-                    )
-                    cb_run = cb_result.scalar_one_or_none()
-                    if cb_run:
-                        cb_run.status = RunStatus(updates["status"])
-                        if updates.get("started_at"):
-                            cb_run.started_at = updates["started_at"]
-                        if updates.get("completed_at"):
-                            cb_run.completed_at = updates["completed_at"]
-                        if updates.get("score"):
-                            cb_run.score = TrafficLight(updates["score"])
-                        if updates.get("score_rationale"):
-                            cb_run.score_rationale = updates["score_rationale"]
-                        await cb_db.commit()
-
-        try:
-            await execute_run(
-                run_id=str(run_id),
-                personas=personas,
-                phases=phases,
-                model=job.model,
-                config=job.config or {},
-                target_dir=job.target_dir,
-                target_url=job.target_url,
-                update_callback=update_callback,
-            )
-        except Exception as e:
-            logger.exception("Run %s failed", run_id)
-            async with async_session() as err_db:
-                err_result = await err_db.execute(
-                    select(Run).where(Run.id == run_id)
-                )
-                err_run = err_result.scalar_one_or_none()
-                if err_run:
-                    err_run.status = RunStatus.failed
-                    err_run.error = str(e)
-                    await err_db.commit()
+# ── Job CRUD ─────────────────────────────────────────────────────────
 
 
 @router.get("", response_model=list[JobResponse])
@@ -199,8 +147,7 @@ async def create_job(
 ):
     job = Job(
         name=data.name,
-        target_url=data.target_url,
-        target_dir=data.target_dir,
+        repo_url=data.repo_url,
         persona_ids=data.persona_ids,
         journey_id=data.journey_id,
         model=data.model,
@@ -241,6 +188,9 @@ async def list_runs(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
+# ── Run detail ───────────────────────────────────────────────────────
+
+
 @router.get("/runs/{run_id}")
 async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -269,6 +219,7 @@ async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
                 "id": str(rp.id),
                 "persona_id": str(rp.persona_id),
                 "status": rp.status.value,
+                "current_phase": rp.current_phase,
                 "blocked_phase": rp.blocked_phase,
                 "blocked_reason": rp.blocked_reason,
                 "phase_summaries": rp.phase_summaries,
@@ -310,3 +261,77 @@ async def list_findings(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     for rp in run.run_personas:
         findings.extend(rp.findings)
     return findings
+
+
+# ── Agent endpoints (called by agent pods) ───────────────────────────
+
+
+@router.post("/runs/{run_id}/status")
+async def agent_status(
+    run_id: uuid.UUID,
+    data: AgentStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Agent reports which phase it's currently on."""
+    rp = await _get_run_persona(run_id, data.persona_id, db)
+    rp.status = RunPersonaStatus.running
+    rp.current_phase = data.current_phase
+    await db.commit()
+    return {"status": "ok"}
+
+
+@router.post("/runs/{run_id}/done")
+async def agent_done(
+    run_id: uuid.UUID,
+    data: AgentDonePayload,
+    db: AsyncSession = Depends(get_db),
+):
+    """Agent reports it finished — saves findings and final status."""
+    rp = await _get_run_persona(run_id, data.persona_id, db)
+
+    rp.status = RunPersonaStatus(data.status)
+    rp.phase_summaries = data.phase_summaries
+    rp.current_phase = None
+    if data.blocked_phase:
+        rp.blocked_phase = data.blocked_phase
+    if data.blocked_reason:
+        rp.blocked_reason = data.blocked_reason
+
+    for f_data in data.findings:
+        finding = FindingModel(
+            run_persona_id=rp.id,
+            severity=Severity(f_data["severity"]),
+            category=f_data["category"],
+            title=f_data["title"],
+            description=f_data["description"],
+            evidence=f_data["evidence"],
+            file_path=f_data.get("file_path"),
+            line_range=f_data.get("line_range"),
+            suggestion=f_data.get("suggestion"),
+            phase=f_data.get("phase", ""),
+            verified=f_data.get("verified", True),
+        )
+        db.add(finding)
+
+    await db.commit()
+
+    from app.engine.orchestrator import notify_agent_done
+
+    notify_agent_done(str(run_id))
+
+    return {"status": "ok"}
+
+
+async def _get_run_persona(
+    run_id: uuid.UUID, persona_id: str, db: AsyncSession
+) -> RunPersona:
+    result = await db.execute(
+        select(RunPersona).where(
+            RunPersona.run_id == run_id,
+            RunPersona.persona_id == persona_id,
+        )
+    )
+    rp = result.scalar_one_or_none()
+    if not rp:
+        raise HTTPException(404, "RunPersona not found")
+    return rp

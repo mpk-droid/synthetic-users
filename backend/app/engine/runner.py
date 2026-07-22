@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import anthropic
 
 from app.engine.supervisor import score_run
-from app.engine.tools import ToolContext, execute_tool, get_tools_for_phase
+from app.engine.tools import ToolContext, execute_tool, get_all_tools
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +43,12 @@ async def run_persona_phase(
     phase_instructions: str,
     phase_name: str,
     persona_name: str,
-    tool_names: list[str],
     tool_ctx: ToolContext,
     model: str,
     max_tokens: int = 4096,
 ) -> str:
-    """Run a single persona through a single journey phase. Returns the phase summary."""
-    tool_schemas = get_tools_for_phase(tool_names)
+    """Run a single persona through one journey phase."""
+    tool_schemas = get_all_tools()
     messages: list[dict] = [{"role": "user", "content": phase_instructions}]
 
     logger.info("%s starting phase: %s", persona_name, phase_name)
@@ -69,9 +68,7 @@ async def run_persona_phase(
 
         if response.stop_reason == "end_turn":
             text_parts = [
-                block.text
-                for block in assistant_content
-                if hasattr(block, "text")
+                block.text for block in assistant_content if hasattr(block, "text")
             ]
             summary = "\n".join(text_parts) if text_parts else "Phase complete."
             break
@@ -108,151 +105,272 @@ async def run_persona_phase(
     return summary
 
 
-async def execute_run(
-    run_id: str,
-    personas: list[dict],
+async def execute_agent_run(
+    persona: dict,
     phases: list[dict],
     model: str,
     config: dict,
-    target_dir: str | None,
-    target_url: str | None,
-    update_callback=None,
-):
-    """Execute a full run: all personas through all phases.
+    workspace_dir: str,
+    on_event=None,
+) -> dict:
+    """Execute a single persona through all phases.
+
+    This is what runs inside each agent container. The persona clones the
+    repo into workspace_dir before this is called, then runs through all
+    journey phases sequentially.
 
     Args:
-        run_id: The run's UUID (for status updates).
-        personas: List of dicts with id, name, system_prompt.
-        phases: List of dicts with name, instructions, available_tools,
-                requires_target_running, order.
+        persona: Dict with id, name, system_prompt.
+        phases: List of dicts with name, instructions, order.
         model: Anthropic model ID.
         config: Job config dict (timeouts, vertex settings, etc.).
-        target_dir: Path to target code directory (for file-reading tools).
-        target_url: URL of running target (for HTTP tools).
-        update_callback: Async callable(run_id, updates_dict) to persist
-                         status changes to the database.
+        workspace_dir: Path to the cloned repository.
+        on_event: Optional async callback(event_type, data) for progress.
+
+    Returns:
+        Dict with persona_id, phase_summaries, findings, blocked info.
     """
     client = _build_client(config)
     max_tokens = config.get("max_tokens", 4096)
     command_timeout = config.get("command_timeout", 120)
     build_timeout = config.get("build_timeout", 300)
 
-    if update_callback:
-        await update_callback(
-            run_id,
-            {"status": "running", "started_at": datetime.now(timezone.utc)},
-        )
+    persona_name = persona["name"]
+    system_prompt = persona["system_prompt"]
+    persona_id = persona["id"]
 
-    all_findings: list[dict] = []
-    persona_results: list[dict] = []
-    any_blocked = False
+    tool_ctx = ToolContext(
+        workspace_dir=workspace_dir,
+        command_timeout=command_timeout,
+        build_timeout=build_timeout,
+    )
+
+    phase_summaries: dict[str, str] = {}
+    blocked = False
+    blocked_phase = None
+    blocked_reason = None
 
     sorted_phases = sorted(phases, key=lambda p: p["order"])
 
-    for persona in personas:
-        persona_name = persona["name"]
-        system_prompt = persona["system_prompt"]
-        persona_id = persona["id"]
+    for phase in sorted_phases:
+        phase_name = phase["name"]
 
-        tool_ctx = ToolContext(
-            target_dir=target_dir or "",
-            target_url=target_url,
-            cluster_url=config.get("cluster_url"),
-            command_timeout=command_timeout,
-            build_timeout=build_timeout,
-        )
+        if on_event:
+            await on_event("phase_started", {"phase": phase_name})
 
-        phase_summaries = {}
-        blocked = False
-        blocked_phase = None
-        blocked_reason = None
-
-        if update_callback:
-            await update_callback(
-                run_id,
-                {"persona_id": persona_id, "persona_status": "running"},
+        try:
+            summary = await run_persona_phase(
+                client=client,
+                system_prompt=system_prompt,
+                phase_instructions=phase["instructions"],
+                phase_name=phase_name,
+                persona_name=persona_name,
+                tool_ctx=tool_ctx,
+                model=model,
+                max_tokens=max_tokens,
             )
+            phase_summaries[phase_name] = summary
 
-        for phase in sorted_phases:
-            phase_name = phase["name"]
-
-            if phase.get("requires_target_running") and not target_url:
-                phase_summaries[phase_name] = "Skipped: target not running"
-                continue
-
-            try:
-                summary = await run_persona_phase(
-                    client=client,
-                    system_prompt=system_prompt,
-                    phase_instructions=phase["instructions"],
-                    phase_name=phase_name,
-                    persona_name=persona_name,
-                    tool_names=phase.get("available_tools", []),
-                    tool_ctx=tool_ctx,
-                    model=model,
-                    max_tokens=max_tokens,
+            if on_event:
+                await on_event(
+                    "phase_completed",
+                    {"phase": phase_name, "phase_summary": summary},
                 )
-                phase_summaries[phase_name] = summary
-            except Exception as e:
-                logger.exception(
-                    "%s blocked at phase %s", persona_name, phase_name
-                )
-                phase_summaries[phase_name] = f"BLOCKED: {e}"
-                blocked = True
-                blocked_phase = phase_name
-                blocked_reason = str(e)
-                any_blocked = True
-                break
 
-        for f in tool_ctx.findings:
-            f["_persona"] = persona_name
+                new_findings = [
+                    f for f in tool_ctx.findings if f.get("phase") == phase_name
+                ]
+                for finding in new_findings:
+                    await on_event("finding", {"finding": finding})
 
-        all_findings.extend(tool_ctx.findings)
+        except Exception as e:
+            logger.exception("%s blocked at phase %s", persona_name, phase_name)
+            phase_summaries[phase_name] = f"BLOCKED: {e}"
+            blocked = True
+            blocked_phase = phase_name
+            blocked_reason = str(e)
+            break
 
-        persona_results.append(
-            {
-                "persona_id": persona_id,
-                "phase_summaries": phase_summaries,
-                "findings": tool_ctx.findings,
-                "blocked": blocked,
-                "blocked_phase": blocked_phase,
-                "blocked_reason": blocked_reason,
-            }
-        )
-
-        if update_callback:
-            status = "blocked" if blocked else "completed"
-            await update_callback(
-                run_id,
-                {
-                    "persona_id": persona_id,
-                    "persona_status": status,
-                    "phase_summaries": phase_summaries,
-                    "blocked_phase": blocked_phase,
-                    "blocked_reason": blocked_reason,
-                    "findings": tool_ctx.findings,
-                },
-            )
-
-    score, rationale, action_items, agreement = score_run(
-        all_findings, any_blocked
-    )
-
-    if update_callback:
-        await update_callback(
-            run_id,
-            {
-                "status": "completed",
-                "completed_at": datetime.now(timezone.utc),
-                "score": score,
-                "score_rationale": rationale,
-            },
-        )
+    for f in tool_ctx.findings:
+        f["_persona"] = persona_name
 
     return {
-        "score": score,
-        "rationale": rationale,
-        "action_items": action_items,
-        "agreement": agreement,
-        "persona_results": persona_results,
+        "persona_id": persona_id,
+        "status": "blocked" if blocked else "completed",
+        "phase_summaries": phase_summaries,
+        "findings": tool_ctx.findings,
+        "blocked_phase": blocked_phase,
+        "blocked_reason": blocked_reason,
     }
+
+
+async def execute_orchestrated_run(
+    run_id: str,
+    personas: list[dict],
+    phases: list[dict],
+    model: str,
+    config: dict,
+    repo_url: str,
+    run_persona_map: dict[str, str],
+):
+    """Execute a full run using the container orchestrator.
+
+    Spins up one agent container per persona, waits for all to finish
+    (agents POST results to orchestrator endpoints), then scores.
+    """
+    from app.engine.orchestrator import create_orchestrator
+
+    orchestrator = create_orchestrator(config=config)
+
+    await orchestrator.run_all(
+        personas=personas,
+        phases=phases,
+        model=model,
+        repo_url=repo_url,
+        run_persona_map=run_persona_map,
+        run_id=run_id,
+    )
+
+    all_findings = await _load_findings_from_db(run_id)
+    any_blocked = await _check_any_blocked(run_id)
+
+    score, rationale, _action_items, _agreement = score_run(all_findings, any_blocked)
+
+    from app.db.session import async_session
+    from app.models.job import Run, RunStatus, TrafficLight
+
+    async with async_session() as db:
+        from sqlalchemy import select
+
+        result = await db.execute(select(Run).where(Run.id == run_id))
+        run = result.scalar_one_or_none()
+        if run:
+            run.status = RunStatus.completed
+            run.completed_at = datetime.now(timezone.utc)
+            run.score = TrafficLight(score)
+            run.score_rationale = rationale
+            await db.commit()
+
+    await _upsert_global_findings(run_id, repo_url, all_findings)
+
+
+async def _load_findings_from_db(run_id: str) -> list[dict]:
+    """Load all findings for a run from the database."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    from app.db.session import async_session
+    from app.models.job import Run, RunPersona
+
+    async with async_session() as db:
+        result = await db.execute(
+            select(Run)
+            .options(selectinload(Run.run_personas).selectinload(RunPersona.findings))
+            .where(Run.id == run_id)
+        )
+        run = result.scalar_one_or_none()
+        if not run:
+            return []
+
+        findings = []
+        for rp in run.run_personas:
+            for f in rp.findings:
+                findings.append(
+                    {
+                        "severity": f.severity.value,
+                        "category": f.category,
+                        "title": f.title,
+                        "description": f.description,
+                        "evidence": f.evidence,
+                        "file_path": f.file_path,
+                        "line_range": f.line_range,
+                        "suggestion": f.suggestion,
+                        "phase": f.phase,
+                        "verified": f.verified,
+                    }
+                )
+        return findings
+
+
+async def _check_any_blocked(run_id: str) -> bool:
+    """Check if any persona in this run was blocked."""
+    from sqlalchemy import select
+
+    from app.db.session import async_session
+    from app.models.job import Run, RunPersona
+
+    async with async_session() as db:
+        result = await db.execute(
+            select(RunPersona)
+            .join(Run)
+            .where(Run.id == run_id, RunPersona.blocked_phase.is_not(None))
+        )
+        return result.first() is not None
+
+
+async def _upsert_global_findings(
+    run_id: str, repo_url: str, findings: list[dict]
+) -> None:
+    """Upsert findings into the global_findings table."""
+    import hashlib
+
+    from sqlalchemy import select
+
+    from app.db.session import async_session
+    from app.models.finding import SEVERITY_RANK, GlobalFinding, Severity
+
+    async with async_session() as db:
+        for f in findings:
+            raw = f"{f['category']}|{f['title']}|{f.get('file_path', '')}"
+            fingerprint = hashlib.sha256(raw.encode()).hexdigest()[:64]
+
+            result = await db.execute(
+                select(GlobalFinding).where(
+                    GlobalFinding.repo_url == repo_url,
+                    GlobalFinding.fingerprint == fingerprint,
+                )
+            )
+            existing = result.scalar_one_or_none()
+
+            persona_name = f.get("_persona", "unknown")
+
+            if existing:
+                existing.last_seen_run_id = run_id
+                existing.seen_count += 1
+                existing.description = f["description"]
+                existing.evidence = f["evidence"]
+                if f.get("suggestion"):
+                    existing.suggestion = f["suggestion"]
+
+                new_sev = Severity(f["severity"])
+                if SEVERITY_RANK[new_sev] > SEVERITY_RANK[existing.severity]:
+                    existing.severity = new_sev
+
+                names = list(existing.persona_names or [])
+                if persona_name not in names:
+                    names.append(persona_name)
+                    existing.persona_names = names
+
+                from app.models.finding import GlobalFindingStatus
+
+                if existing.status == GlobalFindingStatus.fixed:
+                    existing.status = GlobalFindingStatus.open
+            else:
+                gf = GlobalFinding(
+                    repo_url=repo_url,
+                    fingerprint=fingerprint,
+                    severity=Severity(f["severity"]),
+                    category=f["category"],
+                    title=f["title"],
+                    description=f["description"],
+                    evidence=f["evidence"],
+                    file_path=f.get("file_path"),
+                    suggestion=f.get("suggestion"),
+                    first_seen_run_id=run_id,
+                    last_seen_run_id=run_id,
+                    seen_count=1,
+                    persona_names=[persona_name],
+                )
+                db.add(gf)
+
+        await db.commit()

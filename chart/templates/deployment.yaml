@@ -21,6 +21,9 @@ spec:
           ports:
             - containerPort: {{ .Values.service.port }}
               protocol: TCP
+          env:
+            - name: SU_ROLE
+              value: {{ .Values.env.SU_ROLE | quote }}
           envFrom:
             - secretRef:
                 name: {{ include "synthetic-users.fullname" . }}

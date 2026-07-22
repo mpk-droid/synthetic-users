@@ -105,9 +105,7 @@ def _compute_score(findings: list[dict], any_blocked: bool) -> str:
     return "GREEN"
 
 
-def _build_rationale(
-    score: str, findings: list[dict], any_blocked: bool
-) -> str:
+def _build_rationale(score: str, findings: list[dict], any_blocked: bool) -> str:
     if any_blocked:
         return "RED: At least one persona's journey was blocked by a critical failure."
 
@@ -122,8 +120,7 @@ def _build_rationale(
                 f"require immediate attention."
             )
         return (
-            f"RED: {counts['high']} high-severity findings "
-            f"indicate significant issues."
+            f"RED: {counts['high']} high-severity findings indicate significant issues."
         )
 
     if score == "YELLOW":

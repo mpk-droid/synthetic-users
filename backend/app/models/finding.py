@@ -7,7 +7,7 @@ from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base
+from app.models.base import Base, TimestampMixin
 
 
 class Severity(enum.Enum):
@@ -16,6 +16,21 @@ class Severity(enum.Enum):
     medium = "medium"
     low = "low"
     info = "info"
+
+
+SEVERITY_RANK = {
+    Severity.critical: 4,
+    Severity.high: 3,
+    Severity.medium: 2,
+    Severity.low: 1,
+    Severity.info: 0,
+}
+
+
+class GlobalFindingStatus(enum.Enum):
+    open = "open"
+    acknowledged = "acknowledged"
+    fixed = "fixed"
 
 
 class Finding(Base):
@@ -38,4 +53,35 @@ class Finding(Base):
     phase: Mapped[str] = mapped_column(String(255))
     verified: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    run_persona: Mapped["RunPersona"] = relationship("RunPersona", back_populates="findings")
+    run_persona: Mapped["RunPersona"] = relationship(
+        "RunPersona", back_populates="findings"
+    )
+
+
+class GlobalFinding(TimestampMixin, Base):
+    __tablename__ = "global_findings"
+    __table_args__ = ({"sqlite_autoincrement": True},)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    repo_url: Mapped[str] = mapped_column(String(2048))
+    fingerprint: Mapped[str] = mapped_column(String(512))
+    severity: Mapped[Severity] = mapped_column(Enum(Severity))
+    category: Mapped[str] = mapped_column(String(255))
+    title: Mapped[str] = mapped_column(String(500))
+    description: Mapped[str] = mapped_column(Text)
+    evidence: Mapped[str] = mapped_column(Text)
+    file_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    suggestion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    first_seen_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("runs.id")
+    )
+    last_seen_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("runs.id")
+    )
+    seen_count: Mapped[int] = mapped_column(Integer, default=1)
+    persona_names: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    status: Mapped[GlobalFindingStatus] = mapped_column(
+        Enum(GlobalFindingStatus), default=GlobalFindingStatus.open
+    )

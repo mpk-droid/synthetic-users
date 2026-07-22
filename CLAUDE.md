@@ -1,6 +1,6 @@
 # Synthetic Users
 
-Microservice that runs AI synthetic users against any software target to evaluate developer experience. Users configure personas and journeys via UI/REST API, the service generates system prompts from structured fields, and findings are stored in Postgres and viewable in the built-in UI.
+Microservice that runs AI synthetic users against any software target to evaluate developer experience. Users provide a git repository URL, the service spins up one container per persona, each clones the repo and independently evaluates it like a real developer, and findings are deduplicated, scored, and viewable in the built-in UI.
 
 ## Structure
 
@@ -8,13 +8,15 @@ Microservice that runs AI synthetic users against any software target to evaluat
 synthetic-users/
 ├── backend/                     # FastAPI + SQLAlchemy + Alembic
 │   ├── app/
-│   │   ├── main.py              # App entry, lifespan, static file serving
+│   │   ├── main.py              # Orchestrator app entry, lifespan, static file serving
+│   │   ├── agent_server.py      # Agent container app (receives run requests, clones repos)
 │   │   ├── api/                 # Route handlers (personas, journeys, packs, jobs, prompts)
 │   │   ├── models/              # SQLAlchemy models (persona, journey, pack, job/run, finding)
 │   │   ├── schemas/             # Pydantic request/response schemas
-│   │   ├── engine/              # LLM agent loop, sandboxed tools, supervisor scoring, prompt generator
+│   │   ├── engine/              # LLM agent loop, tools, orchestrator, supervisor, prompt generator
 │   │   ├── db/                  # Async session factory
 │   │   └── seed/                # Built-in DX pack (Priya, Sam, Dana, Kai + 5-phase journey)
+│   ├── entrypoint.sh            # SU_ROLE dispatch (orchestrator vs agent)
 │   ├── alembic/                 # DB migrations
 │   └── pyproject.toml
 ├── frontend/                    # React + TypeScript + Vite
@@ -23,8 +25,8 @@ synthetic-users/
 │       ├── pages/               # Dashboard, Personas, Journeys, NewRun, RunDetail, etc.
 │       └── components/          # Layout, ScoreBadge, SeverityBadge, StatusBadge
 ├── chart/                       # Helm chart for OpenShift/K8s
-├── Dockerfile                   # Multi-stage: builds frontend + bundles into backend
-└── docker-compose.yml           # Local dev: app + postgres
+├── Dockerfile                   # Multi-stage: builds frontend + bundles into backend + dev tools
+└── docker-compose.yml           # Local dev: orchestrator + postgres (agents spawned dynamically)
 ```
 
 ## Commands
@@ -58,32 +60,40 @@ cd frontend && npx tsc --noEmit
 ## Architecture
 
 - **Personas** are defined by structured fields (identity, perspective, constraints, expertise_level). The service generates a system prompt from these fields. Users review and approve the prompt before it's used in runs.
-- **Journeys** are ordered sequences of phases. Each phase has instructions, available tools, and a flag for whether the target needs to be running.
+- **Journeys** are ordered sequences of phases. Each phase has instructions that the persona follows independently.
 - **Packs** bundle personas + a journey. The built-in "DX Pack" ships with 4 personas (Priya/Sam/Dana/Kai) and a 5-phase journey.
-- **Jobs** trigger runs. A run executes all selected personas through all journey phases, storing findings to Postgres as they're discovered. Runs execute as FastAPI background tasks.
-- **Engine** is the LLM agent loop: sends persona system prompt + phase instructions to Claude (Sonnet via Vertex AI), handles tool calls (read_file, list_directory, run_command, http_request, report_finding, complete_phase), validates evidence, and scores the run (GREEN/YELLOW/RED).
+- **Jobs** trigger runs. A job specifies a `repo_url`, selected personas, and a journey. The orchestrator spins up one Docker container per persona, each clones the repo and runs through all journey phases.
+- **Engine** has two modes:
+  - **Orchestrator** (`app/main.py`): receives jobs, manages agent container lifecycle via Docker SDK, collects findings, deduplicates, scores (GREEN/YELLOW/RED).
+  - **Agent** (`app/agent_server.py`): clones the repo, runs the LLM tool-use loop (Claude via Anthropic SDK), reports findings back to the orchestrator.
 
 ## Key Files
 
-- `backend/app/engine/runner.py` — the LLM tool-use loop (core of the system)
-- `backend/app/engine/tools.py` — sandboxed tool implementations + allowlist/blocklist
-- `backend/app/engine/supervisor.py` — deterministic scoring logic
+- `backend/app/engine/runner.py` — `execute_agent_run` (single persona) + `execute_orchestrated_run` (container fan-out)
+- `backend/app/engine/orchestrator.py` — Docker container lifecycle (start, health check, collect results, cleanup)
+- `backend/app/engine/tools.py` — tool implementations + allowlist/blocklist (all tools always available)
+- `backend/app/engine/supervisor.py` — deterministic deduplication + scoring logic
 - `backend/app/engine/prompt_generator.py` — structured fields → system prompt
+- `backend/app/agent_server.py` — agent container FastAPI app (POST /run, GET /health)
 - `backend/app/seed/dx_pack.py` — built-in persona and journey definitions
-- `backend/app/api/jobs.py` — job creation + background engine execution
+- `backend/app/api/jobs.py` — job creation + background orchestrated execution
+- `backend/entrypoint.sh` — SU_ROLE-based dispatch (orchestrator vs agent)
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string (asyncpg) |
+| `DATABASE_URL` | Yes (orchestrator) | PostgreSQL connection string (asyncpg) |
 | `ANTHROPIC_VERTEX_PROJECT_ID` | One of these | Vertex AI project ID |
 | `CLOUD_ML_REGION` | | Vertex AI region |
 | `ANTHROPIC_API_KEY` | | Direct Anthropic API key (if not using Vertex) |
+| `SU_ROLE` | No | `orchestrator` (default) or `agent` |
+| `SU_AGENT_IMAGE` | No | Docker image for agent containers (default: `synthetic-users:latest`) |
+| `SU_DOCKER_NETWORK` | No | Docker network for agent containers |
 
 ## Boundaries
 
 - Don't modify the engine's evidence verification logic without understanding the security implications
-- Tool allowlists/blocklists in `engine/tools.py` are a security boundary — changes need review
+- Tool allowlists/blocklists in `engine/tools.py` are a security boundary — the container provides additional sandboxing
 - The prompt generator template in `engine/prompt_generator.py` includes mandatory instructions (evidence requirements, tool usage) — don't remove those sections
 - The seed data in `seed/dx_pack.py` is idempotent — it checks before inserting

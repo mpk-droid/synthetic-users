@@ -94,8 +94,6 @@ async def clone_pack(pack_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
                     order=phase.order,
                     name=phase.name,
                     instructions=phase.instructions,
-                    available_tools=phase.available_tools,
-                    requires_target_running=phase.requires_target_running,
                 )
                 db.add(new_phase)
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -37,7 +37,5 @@ class JourneyPhase(TimestampMixin, Base):
     order: Mapped[int] = mapped_column(Integer)
     name: Mapped[str] = mapped_column(String(255))
     instructions: Mapped[str] = mapped_column(Text)
-    available_tools: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    requires_target_running: Mapped[bool] = mapped_column(Boolean, default=False)
 
     journey: Mapped[Journey] = relationship(back_populates="phases")
