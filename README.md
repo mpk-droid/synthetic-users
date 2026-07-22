@@ -1,13 +1,13 @@
 # Synthetic Users
 
-AI synthetic users that test the developer experience of your software. Configure personas with different backgrounds and expertise levels, define evaluation journeys, and get evidence-backed findings about documentation gaps, setup friction, API issues, and deployment problems.
+AI synthetic users that test the developer experience of your software. Give it a git repo URL — it spins up isolated agent containers (one per persona), each clones the repo and evaluates it like a real developer. Findings are deduplicated, scored GREEN/YELLOW/RED, and viewable in the built-in UI.
 
 ## How It Works
 
 1. **Define personas** — each with an identity, perspective, and constraints (e.g., "backend developer who has never used AI" or "platform engineer evaluating for OpenShift deployment")
 2. **Define a journey** — ordered phases like "Read the docs", "Set up locally", "Test the API", "Try deploying"
-3. **Point at a target** — a code directory or running service
-4. **Get a report** — each persona walks the journey using sandboxed tools (file reading, command execution, HTTP requests) and reports findings with evidence from actual tool outputs
+3. **Point at a repo** — provide a git repository URL
+4. **Get a report** — each persona independently clones the repo, follows the journey phases, and reports findings with evidence. All tools (file reading, command execution, HTTP requests) are always available.
 
 Findings are scored GREEN / YELLOW / RED and stored in a database. A built-in UI shows run history, findings, and reports.
 
@@ -39,7 +39,7 @@ The app is at **http://localhost:8000** — API, UI, and health check all on one
 **Via the UI:**
 1. Open http://localhost:8000
 2. The built-in "DX Pack" (4 personas + 5-phase journey) is pre-loaded
-3. Click "New Run", enter a target directory path, select personas, and start
+3. Click "New Run", enter a repository URL, select personas, and start
 
 **Via the API:**
 
@@ -55,7 +55,7 @@ curl -X POST http://localhost:8000/api/jobs \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Evaluate my-service",
-    "target_dir": "/path/to/your/project",
+    "repo_url": "https://github.com/org/my-service.git",
     "persona_ids": ["<persona-uuid>"],
     "journey_id": "<journey-uuid>",
     "model": "claude-sonnet-4-6"
@@ -64,6 +64,32 @@ curl -X POST http://localhost:8000/api/jobs \
 # Check the run status (get run_id from /api/jobs/{job_id}/runs)
 curl http://localhost:8000/api/jobs/runs/<run-id>
 ```
+
+## Architecture
+
+Each persona runs in its own Docker container. The orchestrator manages the lifecycle:
+
+```
+repo_url ──▶ Orchestrator (FastAPI + Postgres)
+                    │
+         ┌──────────┼──────────┐
+         │          │          │
+    Agent: Priya  Agent: Sam  Agent: Dana  ...
+    (container)   (container) (container)
+         │          │          │
+    git clone    git clone   git clone
+    read docs    follow setup read source
+    run commands try to run  test edges
+         │          │          │
+         └────▶ Findings ◀────┘
+                    │
+            Deduplicate & Score
+            (GREEN / YELLOW / RED)
+```
+
+The same Docker image serves both roles via `SU_ROLE` environment variable:
+- `orchestrator` (default) — runs the FastAPI app with UI, DB, and container management
+- `agent` — runs a lightweight server that clones repos and executes the LLM tool-use loop
 
 ## Local Development
 
@@ -137,6 +163,18 @@ Ships with 4 personas designed for evaluating developer tools and templates:
 
 And a 5-phase journey: First Impressions → Setup → Running Locally → Using the Target → Deployment.
 
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes (orchestrator) | PostgreSQL connection string (asyncpg) |
+| `ANTHROPIC_VERTEX_PROJECT_ID` | One of these | Vertex AI project ID |
+| `CLOUD_ML_REGION` | | Vertex AI region |
+| `ANTHROPIC_API_KEY` | | Direct Anthropic API key (if not using Vertex) |
+| `SU_ROLE` | No | `orchestrator` (default) or `agent` |
+| `SU_AGENT_IMAGE` | No | Docker image for agent containers |
+| `SU_DOCKER_NETWORK` | No | Docker network for agent containers |
+
 ## Deploying to OpenShift / Kubernetes
 
 ### Build and Push the Image
@@ -155,69 +193,6 @@ helm install synthetic-users ./chart \
   --set secrets.vertexProjectId=your-gcp-project \
   --set secrets.vertexRegion=us-east5 \
   --set postgresql.auth.password=your-db-password
-```
-
-This creates:
-- Deployment with health probes and resource limits
-- Service (ClusterIP on port 8000)
-- OpenShift Route with TLS edge termination
-- Secret with database URL and LLM credentials
-
-### Helm Configuration
-
-Key values in `chart/values.yaml`:
-
-```yaml
-image:
-  repository: quay.io/your-org/synthetic-users
-  tag: latest
-
-resources:
-  requests: { memory: 256Mi, cpu: 100m }
-  limits: { memory: 1Gi, cpu: "1" }
-
-postgresql:
-  auth:
-    database: synthetic_users
-    username: synthetic
-    password: synthetic   # override in production
-
-secrets:
-  anthropicApiKey: ""       # direct API key
-  vertexProjectId: ""       # or Vertex AI
-  vertexRegion: ""
-```
-
-## GitHub Actions Integration
-
-Trigger evaluations from CI:
-
-```yaml
-- name: Run synthetic users
-  run: |
-    # Create a job
-    JOB=$(curl -s -X POST $SYNTHETIC_USERS_URL/api/jobs \
-      -H "Content-Type: application/json" \
-      -d '{
-        "name": "PR check",
-        "target_dir": "${{ github.workspace }}",
-        "persona_ids": ["<sam-uuid>"],
-        "journey_id": "<journey-uuid>"
-      }')
-    RUN_ID=$(echo $JOB | jq -r '.id')
-
-    # Poll until complete
-    while true; do
-      STATUS=$(curl -s $SYNTHETIC_USERS_URL/api/jobs/$RUN_ID/runs \
-        | jq -r '.[0].status')
-      [ "$STATUS" = "completed" ] || [ "$STATUS" = "failed" ] && break
-      sleep 10
-    done
-
-    # Check score
-    SCORE=$(curl -s $SYNTHETIC_USERS_URL/api/jobs/$RUN_ID/runs \
-      | jq -r '.[0].score')
-    [ "$SCORE" = "RED" ] && exit 1
 ```
 
 ## API Reference
@@ -241,6 +216,8 @@ Trigger evaluations from CI:
 | `/api/jobs/{id}/runs` | GET | List runs for a job |
 | `/api/jobs/runs/{id}` | GET | Run detail with findings |
 | `/api/jobs/runs/{id}/findings` | GET | All findings for a run |
+| `/api/findings` | GET | Global findings across all runs |
+| `/api/findings/{id}` | PATCH | Update finding status |
 | `/api/prompts/generate` | POST | Preview prompt from structured fields |
 
 Full OpenAPI docs at http://localhost:8000/docs.
