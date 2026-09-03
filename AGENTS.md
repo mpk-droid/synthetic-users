@@ -89,6 +89,9 @@ In Cursor, use **Terminal → Run Task** (`Cmd+Shift+P` → "Tasks: Run Task") f
 | `ANTHROPIC_VERTEX_PROJECT_ID` | One of these | Vertex AI project ID |
 | `CLOUD_ML_REGION` | | Vertex AI region |
 | `ANTHROPIC_API_KEY` | | Direct Anthropic API key (if not using Vertex) |
+| `NVIDIA_API_KEY` | One of these | NVIDIA NIM API key ([build.nvidia.com](https://build.nvidia.com/settings)) |
+| `NVIDIA_NIM_BASE_URL` | No | Default `https://integrate.api.nvidia.com/v1` |
+| `NVIDIA_NIM_MODEL` | No | Default `nvidia/nemotron-3-ultra-550b-a55b` |
 | `SU_ROLE` | No | `orchestrator` (default) or `agent` |
 | `SU_AGENT_IMAGE` | No | Docker image for agent containers (default: `synthetic-users:latest`) |
 | `SU_DOCKER_NETWORK` | No | Docker network for agent containers |

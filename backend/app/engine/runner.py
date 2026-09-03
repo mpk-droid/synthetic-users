@@ -35,6 +35,33 @@ def _build_client(config: dict):
             verify_ssl=False,
         )
 
+    nvidia_api_key = config.get("nvidia_api_key") or os.environ.get("NVIDIA_API_KEY")
+    if nvidia_api_key:
+        from app.engine.nvidia_nim import (
+            DEFAULT_BASE_URL,
+            DEFAULT_MODEL,
+            NvidiaNimClient,
+        )
+
+        base_url = config.get("nvidia_nim_base_url") or os.environ.get(
+            "NVIDIA_NIM_BASE_URL", DEFAULT_BASE_URL
+        )
+        default_model = config.get("nvidia_nim_model") or os.environ.get(
+            "NVIDIA_NIM_MODEL", DEFAULT_MODEL
+        )
+        enable_thinking = config.get("nvidia_nim_enable_thinking")
+        if enable_thinking is None:
+            enable_thinking = os.environ.get(
+                "NVIDIA_NIM_ENABLE_THINKING", "true"
+            ).lower() in ("1", "true", "yes")
+        logger.info("Using NVIDIA NIM (%s, model=%s)", base_url, default_model)
+        return NvidiaNimClient(
+            api_key=nvidia_api_key,
+            base_url=base_url,
+            default_model=default_model,
+            enable_thinking=enable_thinking,
+        )
+
     vertex_project = config.get("vertex_project_id") or os.environ.get(
         "ANTHROPIC_VERTEX_PROJECT_ID"
     )

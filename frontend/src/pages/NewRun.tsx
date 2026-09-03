@@ -26,7 +26,7 @@ export default function NewRun() {
     name: '',
     repo_url: '',
     journey_id: '',
-    model: 'claude-sonnet-4-6',
+    model: 'nvidia/nemotron-3-ultra-550b-a55b',
   });
 
   const [personaEnvs, setPersonaEnvs] = useState<Record<string, Set<string>>>({});
@@ -145,6 +145,7 @@ export default function NewRun() {
           <input
             id="model"
             type="text"
+            placeholder="nvidia/nemotron-3-ultra-550b-a55b"
             value={form.model}
             onChange={(e) => setForm((p) => ({ ...p, model: e.target.value }))}
           />

@@ -16,7 +16,7 @@ class JobCreate(BaseModel):
     repo_url: str = Field(..., min_length=1)
     persona_environments: list[PersonaEnvironmentSpec]
     journey_id: uuid.UUID
-    model: str = "claude-sonnet-4-6"
+    model: str = "nvidia/nemotron-3-ultra-550b-a55b"
     config: dict = Field(default_factory=dict)
 
 

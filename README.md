@@ -16,7 +16,7 @@ Findings are scored GREEN / YELLOW / RED and stored in a database. A built-in UI
 ### Prerequisites
 
 - Docker and Docker Compose
-- One of: `ANTHROPIC_API_KEY` or Vertex AI credentials (`ANTHROPIC_VERTEX_PROJECT_ID` + `CLOUD_ML_REGION`)
+- One of: `NVIDIA_API_KEY` (recommended), `ANTHROPIC_API_KEY`, or Vertex AI credentials (`ANTHROPIC_VERTEX_PROJECT_ID` + `CLOUD_ML_REGION`)
 
 ### Run with Docker Compose
 
@@ -24,6 +24,7 @@ Findings are scored GREEN / YELLOW / RED and stored in a database. A built-in UI
 git clone <repo-url> && cd synthetic-users
 
 # Set your LLM credentials
+export NVIDIA_API_KEY=nvapi-...  # https://build.nvidia.com/settings
 export ANTHROPIC_VERTEX_PROJECT_ID=your-project-id
 export CLOUD_ML_REGION=us-east5
 # Or: export ANTHROPIC_API_KEY=sk-...

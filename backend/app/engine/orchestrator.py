@@ -116,6 +116,10 @@ class AgentOrchestrator(abc.ABC):
             "CLOUD_ML_REGION",
             "MODELS_CORP_API_KEY",
             "MODELS_CORP_URL",
+            "NVIDIA_API_KEY",
+            "NVIDIA_NIM_BASE_URL",
+            "NVIDIA_NIM_MODEL",
+            "NVIDIA_NIM_ENABLE_THINKING",
         ):
             val = os.environ.get(key, "")
             if val:
@@ -307,7 +311,7 @@ class KubernetesOrchestrator(AgentOrchestrator):
                 value_from=k8s_client.V1EnvVarSource(
                     secret_key_ref=k8s_client.V1SecretKeySelector(
                         name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
-                        key="anthropic-api-key",
+                        key="ANTHROPIC_API_KEY",
                         optional=True,
                     )
                 ),
@@ -317,7 +321,7 @@ class KubernetesOrchestrator(AgentOrchestrator):
                 value_from=k8s_client.V1EnvVarSource(
                     secret_key_ref=k8s_client.V1SecretKeySelector(
                         name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
-                        key="vertex-project-id",
+                        key="ANTHROPIC_VERTEX_PROJECT_ID",
                         optional=True,
                     )
                 ),
@@ -327,7 +331,7 @@ class KubernetesOrchestrator(AgentOrchestrator):
                 value_from=k8s_client.V1EnvVarSource(
                     secret_key_ref=k8s_client.V1SecretKeySelector(
                         name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
-                        key="vertex-region",
+                        key="CLOUD_ML_REGION",
                         optional=True,
                     )
                 ),
@@ -348,6 +352,36 @@ class KubernetesOrchestrator(AgentOrchestrator):
                     secret_key_ref=k8s_client.V1SecretKeySelector(
                         name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
                         key="MODELS_CORP_URL",
+                        optional=True,
+                    )
+                ),
+            ),
+            k8s_client.V1EnvVar(
+                name="NVIDIA_API_KEY",
+                value_from=k8s_client.V1EnvVarSource(
+                    secret_key_ref=k8s_client.V1SecretKeySelector(
+                        name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
+                        key="NVIDIA_API_KEY",
+                        optional=True,
+                    )
+                ),
+            ),
+            k8s_client.V1EnvVar(
+                name="NVIDIA_NIM_BASE_URL",
+                value_from=k8s_client.V1EnvVarSource(
+                    secret_key_ref=k8s_client.V1SecretKeySelector(
+                        name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
+                        key="NVIDIA_NIM_BASE_URL",
+                        optional=True,
+                    )
+                ),
+            ),
+            k8s_client.V1EnvVar(
+                name="NVIDIA_NIM_MODEL",
+                value_from=k8s_client.V1EnvVarSource(
+                    secret_key_ref=k8s_client.V1SecretKeySelector(
+                        name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
+                        key="NVIDIA_NIM_MODEL",
                         optional=True,
                     )
                 ),
