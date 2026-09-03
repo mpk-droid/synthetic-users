@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -40,7 +40,7 @@ class Job(TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(255))
     repo_url: Mapped[str] = mapped_column(String(2048))
-    persona_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)))
+    persona_environments: Mapped[list[dict]] = mapped_column(JSONB)
     journey_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("journeys.id")
     )
@@ -99,6 +99,9 @@ class RunPersona(Base):
     persona_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("personas.id")
     )
+    environment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("environments.id"), nullable=True
+    )
     status: Mapped[RunPersonaStatus] = mapped_column(
         Enum(RunPersonaStatus), default=RunPersonaStatus.pending
     )
@@ -112,6 +115,7 @@ class RunPersona(Base):
 
     run: Mapped[Run] = relationship(back_populates="run_personas")
     persona: Mapped["Persona"] = relationship("Persona")
+    environment: Mapped["Environment"] = relationship("Environment")
     findings: Mapped[list["Finding"]] = relationship(
         "Finding", back_populates="run_persona", cascade="all, delete-orphan"
     )

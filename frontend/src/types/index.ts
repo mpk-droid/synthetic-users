@@ -78,10 +78,31 @@ export interface PackResponse {
   updated_at: string;
 }
 
+export interface EnvironmentResponse {
+  id: string;
+  name: string;
+  image: string;
+  description: string | null;
+  is_builtin: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EnvironmentCreate {
+  name: string;
+  image: string;
+  description?: string;
+}
+
+export interface PersonaEnvironmentSpec {
+  persona_id: string;
+  environment_ids: string[];
+}
+
 export interface JobCreate {
   name: string;
   repo_url: string;
-  persona_ids: string[];
+  persona_environments: PersonaEnvironmentSpec[];
   journey_id: string;
   model: string;
   config?: object;
@@ -91,7 +112,7 @@ export interface JobResponse {
   id: string;
   name: string;
   repo_url: string;
-  persona_ids: string[];
+  persona_environments: PersonaEnvironmentSpec[];
   journey_id: string;
   model: string;
   config: object;
@@ -118,6 +139,7 @@ export interface RunPersonaDetail {
   blocked_phase: string | null;
   blocked_reason: string | null;
   phase_summaries: Record<string, string>;
+  environment: { id: string; name: string; image: string } | null;
   findings: FindingResponse[];
 }
 

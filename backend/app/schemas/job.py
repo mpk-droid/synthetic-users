@@ -6,10 +6,15 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
+class PersonaEnvironmentSpec(BaseModel):
+    persona_id: uuid.UUID
+    environment_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
 class JobCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     repo_url: str = Field(..., min_length=1)
-    persona_ids: list[uuid.UUID]
+    persona_environments: list[PersonaEnvironmentSpec]
     journey_id: uuid.UUID
     model: str = "claude-sonnet-4-6"
     config: dict = Field(default_factory=dict)
@@ -34,7 +39,7 @@ class JobResponse(BaseModel):
     id: uuid.UUID
     name: str
     repo_url: str
-    persona_ids: list[uuid.UUID]
+    persona_environments: list[dict]
     journey_id: uuid.UUID
     model: str
     config: dict

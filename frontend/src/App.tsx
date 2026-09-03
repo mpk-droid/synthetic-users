@@ -8,6 +8,7 @@ import Journeys from './pages/Journeys';
 import JourneyDetail from './pages/JourneyDetail';
 import NewRun from './pages/NewRun';
 import RunDetail from './pages/RunDetail';
+import Environments from './pages/Environments';
 import Findings from './pages/Findings';
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/personas/:id" element={<PersonaDetail />} />
         <Route path="/journeys" element={<Journeys />} />
         <Route path="/journeys/:id" element={<JourneyDetail />} />
+        <Route path="/environments" element={<Environments />} />
         <Route path="/findings" element={<Findings />} />
         <Route path="/runs/new" element={<NewRun />} />
         <Route path="/runs/:id" element={<RunDetail />} />

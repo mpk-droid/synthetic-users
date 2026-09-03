@@ -34,7 +34,7 @@ export default function Dashboard() {
             jobId: job.id,
             jobName: job.name,
             run: latestRun,
-            personaCount: job.persona_ids.length,
+            personaCount: job.persona_environments.length,
             createdAt: job.created_at,
           });
         } catch {
@@ -42,7 +42,7 @@ export default function Dashboard() {
             jobId: job.id,
             jobName: job.name,
             run: null,
-            personaCount: job.persona_ids.length,
+            personaCount: job.persona_environments.length,
             createdAt: job.created_at,
           });
         }

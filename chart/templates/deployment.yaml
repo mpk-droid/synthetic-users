@@ -14,6 +14,9 @@ spec:
       labels:
         {{- include "synthetic-users.selectorLabels" . | nindent 8 }}
     spec:
+      {{- if .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -24,6 +27,16 @@ spec:
           env:
             - name: SU_ROLE
               value: {{ .Values.env.SU_ROLE | quote }}
+            - name: SU_ORCHESTRATOR
+              value: "kubernetes"
+            - name: SU_AGENT_IMAGE
+              value: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            - name: SU_K8S_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SU_ORCHESTRATOR_HOST
+              value: "{{ include "synthetic-users.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
           envFrom:
             - secretRef:
                 name: {{ include "synthetic-users.fullname" . }}

@@ -109,14 +109,17 @@ class AgentOrchestrator(abc.ABC):
         """Remove agent containers/pods."""
 
     def _base_env(self) -> dict[str, str]:
-        env = {
-            "SU_ROLE": "agent",
-            "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", ""),
-            "ANTHROPIC_VERTEX_PROJECT_ID": os.environ.get(
-                "ANTHROPIC_VERTEX_PROJECT_ID", ""
-            ),
-            "CLOUD_ML_REGION": os.environ.get("CLOUD_ML_REGION", ""),
-        }
+        env: dict[str, str] = {"SU_ROLE": "agent"}
+        for key in (
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_VERTEX_PROJECT_ID",
+            "CLOUD_ML_REGION",
+            "MODELS_CORP_API_KEY",
+            "MODELS_CORP_URL",
+        ):
+            val = os.environ.get(key, "")
+            if val:
+                env[key] = val
         gcp_creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
         if gcp_creds:
             env["GOOGLE_APPLICATION_CREDENTIALS"] = "/gcp/credentials.json"
@@ -232,9 +235,11 @@ class DockerOrchestrator(AgentOrchestrator):
             except docker.errors.NotFound:
                 pass
 
+            image = persona.get("environment_image") or self.agent_image
+
             try:
                 container = self._docker_client.containers.run(
-                    self.agent_image,
+                    image,
                     detach=True,
                     name=name,
                     environment=env,
@@ -327,6 +332,26 @@ class KubernetesOrchestrator(AgentOrchestrator):
                     )
                 ),
             ),
+            k8s_client.V1EnvVar(
+                name="MODELS_CORP_API_KEY",
+                value_from=k8s_client.V1EnvVarSource(
+                    secret_key_ref=k8s_client.V1SecretKeySelector(
+                        name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
+                        key="MODELS_CORP_API_KEY",
+                        optional=True,
+                    )
+                ),
+            ),
+            k8s_client.V1EnvVar(
+                name="MODELS_CORP_URL",
+                value_from=k8s_client.V1EnvVarSource(
+                    secret_key_ref=k8s_client.V1SecretKeySelector(
+                        name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
+                        key="MODELS_CORP_URL",
+                        optional=True,
+                    )
+                ),
+            ),
         ]
 
         for persona in personas:
@@ -334,9 +359,11 @@ class KubernetesOrchestrator(AgentOrchestrator):
             job_name = f"su-agent-{suffix}"
             svc_name = job_name
 
+            image = persona.get("environment_image") or self.agent_image
+
             container = k8s_client.V1Container(
                 name="agent",
-                image=self.agent_image,
+                image=image,
                 ports=[k8s_client.V1ContainerPort(container_port=AGENT_PORT)],
                 env=env_vars,
                 resources=k8s_client.V1ResourceRequirements(

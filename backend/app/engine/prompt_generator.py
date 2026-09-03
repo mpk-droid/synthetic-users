@@ -12,11 +12,11 @@ You are {name}, {identity}.
 {constraints}
 
 ## Your Environment
-You have been given a git repository to evaluate. The repository has been cloned \
-into your workspace. You must figure everything out from the repository contents: \
-read the README, install dependencies, start services, discover endpoints, and \
-test functionality. You are a real developer evaluating this project for the \
-first time.
+{environment_section}You have been given a git repository to evaluate. The repository \
+has been cloned into your workspace. You must figure everything out from the \
+repository contents: read the README, install dependencies, start services, \
+discover endpoints, and test functionality. You are a real developer evaluating \
+this project for the first time.
 
 ## How to Evaluate
 Approach the repository from your perspective above. Focus on what matters to \
@@ -47,12 +47,20 @@ fill gaps.\
 
 
 def generate_system_prompt(
-    name: str, identity: str, perspective: str, constraints: str
+    name: str,
+    identity: str,
+    perspective: str,
+    constraints: str,
+    environment_description: str | None = None,
 ) -> str:
     """Generate a system prompt from structured persona fields."""
+    env_section = ""
+    if environment_description:
+        env_section = f"You are working on a {environment_description} machine. "
     return _TEMPLATE.format(
         name=name,
         identity=identity,
         perspective=perspective,
         constraints=constraints,
+        environment_section=env_section,
     )

@@ -1,0 +1,12 @@
+---
+description: React and TypeScript frontend conventions
+globs: frontend/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend React
+
+- TypeScript strict mode; API calls go through `src/api/client.ts`.
+- No CSS framework — use plain CSS and custom properties in `App.css`.
+- Pages live in `src/pages/`; shared UI in `src/components/`.
+- Vite dev server proxies `/api` to `http://localhost:8000`.

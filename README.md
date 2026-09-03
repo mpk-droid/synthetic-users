@@ -91,6 +91,20 @@ The same Docker image serves both roles via `SU_ROLE` environment variable:
 - `orchestrator` (default) — runs the FastAPI app with UI, DB, and container management
 - `agent` — runs a lightweight server that clones repos and executes the LLM tool-use loop
 
+## Cursor
+
+This repo is set up for [Cursor](https://cursor.com) (not Claude Code CLI):
+
+| File | Purpose |
+|------|---------|
+| `AGENTS.md` | Project context for any coding agent |
+| `.cursor/rules/` | Scoped rules (always-on project context, backend Python, frontend React) |
+| `.vscode/tasks.json` | Run tasks via **Cmd+Shift+P → Tasks: Run Task** |
+
+**Quick start in Cursor:** Run task `docker: up` (full stack on http://localhost:8000) or `dev: full stack` (Postgres + hot-reload backend and frontend).
+
+`.claude/` is ignored by git — use it only if you also use Claude Code CLI.
+
 ## Local Development
 
 For hot-reload during development, run the backend and frontend separately:

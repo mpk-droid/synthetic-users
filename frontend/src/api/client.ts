@@ -2,6 +2,8 @@ import type {
   PersonaResponse,
   PersonaCreate,
   PersonaUpdate,
+  EnvironmentResponse,
+  EnvironmentCreate,
   GlobalFindingResponse,
   JourneyResponse,
   JourneyCreate,
@@ -158,6 +160,23 @@ export function generatePrompt(data: {
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+// --- Environments ---
+
+export function getEnvironments(): Promise<EnvironmentResponse[]> {
+  return request('/api/environments');
+}
+
+export function createEnvironment(data: EnvironmentCreate): Promise<EnvironmentResponse> {
+  return request('/api/environments', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteEnvironment(id: string): Promise<void> {
+  return request(`/api/environments/${id}`, { method: 'DELETE' });
 }
 
 // --- Global Findings ---

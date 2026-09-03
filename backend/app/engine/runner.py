@@ -16,9 +16,25 @@ logger = logging.getLogger(__name__)
 MAX_ITERATIONS = 50
 
 
-def _build_client(
-    config: dict,
-) -> anthropic.AsyncAnthropic | anthropic.AsyncAnthropicVertex:
+def _build_client(config: dict):
+    models_corp_key = config.get("models_corp_api_key") or os.environ.get(
+        "MODELS_CORP_API_KEY"
+    )
+    models_corp_url = config.get("models_corp_url") or os.environ.get(
+        "MODELS_CORP_URL",
+        "https://claude--apicast-production.apps.int.stc.ai.prod.us-east-1.aws.paas.redhat.com",
+    )
+
+    if models_corp_key:
+        from app.engine.models_corp import ModelsCorpClient
+
+        logger.info("Using Models.corp (%s)", models_corp_url)
+        return ModelsCorpClient(
+            base_url=models_corp_url,
+            api_key=models_corp_key,
+            verify_ssl=False,
+        )
+
     vertex_project = config.get("vertex_project_id") or os.environ.get(
         "ANTHROPIC_VERTEX_PROJECT_ID"
     )
@@ -28,7 +44,9 @@ def _build_client(
 
     if vertex_project:
         logger.info(
-            "Using Vertex AI (project=%s, region=%s)", vertex_project, vertex_region
+            "Using Vertex AI (project=%s, region=%s)",
+            vertex_project,
+            vertex_region,
         )
         return anthropic.AsyncAnthropicVertex(
             project_id=vertex_project,

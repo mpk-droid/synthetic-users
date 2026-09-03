@@ -9,10 +9,10 @@
   body { font-family: 'Red Hat Display', 'Helvetica Neue', Arial, sans-serif; background: #1a1a1a; color: #fff; overflow: hidden; }
   @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700;900&family=Red+Hat+Text:wght@400;500;700&display=swap');
 
-  .slide { display: none; width: 100vw; min-height: 100vh; padding: 60px 80px; flex-direction: column; justify-content: center; position: relative; overflow-y: auto; }
+  .slide { display: none; width: 100vw; min-height: 100vh; padding: 60px 80px; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; overflow-y: auto; }
   .slide.active { display: flex; }
   body { overflow-y: auto; }
-  .slide::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px; background: #e00; }
+  .progress-bar { position: fixed; top: 0; left: 0; height: 4px; background: #e00; z-index: 200; transition: width 0.3s ease; }
 
   /* Nav */
   .nav { position: fixed; bottom: 30px; right: 40px; font-size: 14px; color: #666; z-index: 100; font-family: 'Red Hat Text', sans-serif; }
@@ -334,9 +334,12 @@
   <h1>Thank You<span class="accent">!</span></h1>
 </div>
 
+<!-- Progress bar -->
+<div class="progress-bar" id="progressBar"></div>
+
 <!-- Navigation -->
 <div class="nav">
-  <span id="counter">1 / 12</span>
+  <span id="counter">1 / 13</span>
 </div>
 
 <script>
@@ -348,6 +351,7 @@
     current = Math.max(0, Math.min(n, slides.length - 1));
     slides[current].classList.add('active');
     document.getElementById('counter').textContent = `${current + 1} / ${slides.length}`;
+    document.getElementById('progressBar').style.width = `${((current + 1) / slides.length) * 100}%`;
   }
 
   document.addEventListener('keydown', e => {

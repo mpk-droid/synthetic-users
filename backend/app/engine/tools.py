@@ -24,8 +24,7 @@ TOOL_SCHEMAS: list[dict] = [
     {
         "name": "read_file",
         "description": (
-            "Read a file from the workspace. "
-            "Path is relative to the repository root."
+            "Read a file from the workspace. Path is relative to the repository root."
         ),
         "input_schema": {
             "type": "object",
@@ -77,8 +76,7 @@ TOOL_SCHEMAS: list[dict] = [
     {
         "name": "http_request",
         "description": (
-            "Make an HTTP request to a URL "
-            "(typically localhost services you started)."
+            "Make an HTTP request to a URL (typically localhost services you started)."
         ),
         "input_schema": {
             "type": "object",

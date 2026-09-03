@@ -1,0 +1,13 @@
+---
+description: Python backend conventions for FastAPI and SQLAlchemy
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Backend Python
+
+- Python 3.12+, async everywhere (SQLAlchemy async, FastAPI async handlers).
+- `from __future__ import annotations` in all Python files.
+- Ruff: line-length 88, double quotes, select E/F/I.
+- Use existing patterns in `app/api/`, `app/models/`, `app/schemas/` for new endpoints.
+- Engine changes: read `runner.py`, `orchestrator.py`, `tools.py` before editing agent lifecycle or tool access.

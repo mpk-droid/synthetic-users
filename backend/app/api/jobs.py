@@ -53,14 +53,29 @@ async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
             logger.error("Run %s not found", run_id)
             return
 
-        persona_ids = job.persona_ids
+        persona_ids = list({pe["persona_id"] for pe in job.persona_environments})
         personas_result = await db.execute(
-            select(Persona).where(Persona.id.in_(persona_ids))
+            select(Persona).where(
+                Persona.id.in_([uuid.UUID(pid) for pid in persona_ids])
+            )
         )
         persona_rows = personas_result.scalars().all()
-        persona_map = {p.id: p for p in persona_rows}
+        persona_map = {str(p.id): p for p in persona_rows}
 
+        from app.models.environment import Environment
         from app.models.journey import Journey
+
+        env_ids = []
+        for pe in job.persona_environments:
+            env_ids.extend(pe.get("environment_ids", []))
+        env_map: dict[str, Environment] = {}
+        if env_ids:
+            env_result = await db.execute(
+                select(Environment).where(
+                    Environment.id.in_([uuid.UUID(eid) for eid in env_ids])
+                )
+            )
+            env_map = {str(e.id): e for e in env_result.scalars().all()}
 
         journey_result = await db.execute(
             select(Journey)
@@ -75,19 +90,24 @@ async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
             return
 
         personas = []
-        for pid in persona_ids:
-            p = persona_map.get(pid)
+        for rp in run.run_personas:
+            p = persona_map.get(str(rp.persona_id))
             if not p:
-                logger.warning("Persona %s not found, skipping", pid)
+                logger.warning("Persona %s not found, skipping", rp.persona_id)
                 continue
             if not p.system_prompt:
                 logger.warning("Persona %s has no system prompt, skipping", p.name)
                 continue
+            env = env_map.get(str(rp.environment_id)) if rp.environment_id else None
+            env_suffix = f" ({env.name})" if env else ""
             personas.append(
                 {
-                    "id": str(p.id),
-                    "name": p.name,
+                    "id": str(rp.id),
+                    "persona_id": str(p.id),
+                    "name": f"{p.name}{env_suffix}",
                     "system_prompt": p.system_prompt,
+                    "environment_image": env.image if env else None,
+                    "environment_description": env.description if env else None,
                 }
             )
 
@@ -103,7 +123,7 @@ async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
 
         run_persona_map = {}
         for rp in run.run_personas:
-            run_persona_map[str(rp.persona_id)] = str(rp.id)
+            run_persona_map[str(rp.id)] = str(rp.id)
 
         run.status = RunStatus.running
         run.started_at = datetime.now(timezone.utc)
@@ -148,7 +168,9 @@ async def create_job(
     job = Job(
         name=data.name,
         repo_url=data.repo_url,
-        persona_ids=data.persona_ids,
+        persona_environments=[
+            pe.model_dump(mode="json") for pe in data.persona_environments
+        ],
         journey_id=data.journey_id,
         model=data.model,
         config=data.config,
@@ -160,9 +182,15 @@ async def create_job(
     db.add(run)
     await db.flush()
 
-    for pid in data.persona_ids:
-        rp = RunPersona(run_id=run.id, persona_id=pid)
-        db.add(rp)
+    for pe_spec in data.persona_environments:
+        env_ids = pe_spec.environment_ids or [None]
+        for env_id in env_ids:
+            rp = RunPersona(
+                run_id=run.id,
+                persona_id=pe_spec.persona_id,
+                environment_id=env_id,
+            )
+            db.add(rp)
 
     await db.commit()
     await db.refresh(job)
@@ -197,6 +225,7 @@ async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         select(Run)
         .options(
             selectinload(Run.run_personas).selectinload(RunPersona.findings),
+            selectinload(Run.run_personas).selectinload(RunPersona.environment),
         )
         .where(Run.id == run_id)
     )
@@ -223,6 +252,13 @@ async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
                 "blocked_phase": rp.blocked_phase,
                 "blocked_reason": rp.blocked_reason,
                 "phase_summaries": rp.phase_summaries,
+                "environment": {
+                    "id": str(rp.environment.id),
+                    "name": rp.environment.name,
+                    "image": rp.environment.image,
+                }
+                if rp.environment
+                else None,
                 "findings": [
                     {
                         "id": str(f.id),

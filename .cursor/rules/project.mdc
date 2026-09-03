@@ -1,0 +1,19 @@
+---
+description: Synthetic Users architecture, commands, and security boundaries
+alwaysApply: true
+---
+
+# Synthetic Users — Project Context
+
+Full details in `AGENTS.md`. Critical boundaries:
+
+- Evidence verification in the engine is security-sensitive — understand before changing.
+- `engine/tools.py` allowlists/blocklists are a security boundary.
+- Do not remove mandatory sections from `engine/prompt_generator.py`.
+- `seed/dx_pack.py` seeding is idempotent.
+
+**Local stack:** `docker compose up --build` → http://localhost:8000 (UI + API).
+
+**Dev hot reload:** `docker compose up db -d`, backend on :8000, frontend `npm run dev` on :5173.
+
+**Lint:** `uv run ruff check app/` (backend), `npx tsc --noEmit` (frontend).
