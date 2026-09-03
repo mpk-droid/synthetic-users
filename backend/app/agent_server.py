@@ -48,7 +48,7 @@ async def run_agent(request: AgentRunRequest, background_tasks: BackgroundTasks)
 async def _run_agent_background(request: AgentRunRequest) -> None:
     workspace = Path(tempfile.mkdtemp(prefix="su-workspace-"))
     clone_path = workspace / "repo"
-    persona_id = request.persona.get("id", "unknown")
+    persona_id = request.persona.get("persona_id") or request.persona.get("id", "unknown")
     orchestrator_url = request.orchestrator_url
 
     async def on_phase_started(phase_name: str) -> None:
