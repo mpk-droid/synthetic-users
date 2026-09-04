@@ -98,6 +98,19 @@ In Cursor, use **Terminal → Run Task** (`Cmd+Shift+P` → "Tasks: Run Task") f
 
 Copy `.env.example` to `.env` for local shell exports. Docker Compose reads `ANTHROPIC_API_KEY` and `ANTHROPIC_VERTEX_PROJECT_ID` from your environment.
 
+## Test runs (agents: always use these)
+
+When validating workflows, UI, cluster deploys, or LLM integration — **do not** use the DX pack unless explicitly testing full DX evaluation.
+
+| Use | Value |
+|-----|-------|
+| **Journey** | **Smoke Test Journey** (2 phases) |
+| **Personas** | **Alex (Test)**, **Blake (Test)**, **Casey (Test)** — use all three |
+| **Repo** | `https://github.com/mpk-droid/synthetic-users-smoke-test.git` |
+
+Seeded from `backend/app/seed/test_pack.py` on orchestrator startup.
+
+
 ## Boundaries
 
 - Don't modify the engine's evidence verification logic without understanding the security implications

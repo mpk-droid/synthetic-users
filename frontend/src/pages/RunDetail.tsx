@@ -2,10 +2,174 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getRunDetail, getPersonas } from '../api/client';
-import type { RunPersonaDetail, FindingResponse } from '../types';
+import type { JourneyPhaseRef, PhaseTimes, RunPersonaDetail, FindingResponse } from '../types';
 import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
 import SeverityBadge from '../components/SeverityBadge';
+
+type PhaseTimelineState = 'completed' | 'active' | 'pending' | 'error';
+
+function phaseState(
+  phase: JourneyPhaseRef,
+  persona: RunPersonaDetail,
+): PhaseTimelineState {
+  const { current_phase: currentPhase, phase_summaries: phaseSummaries, status, blocked_phase } = persona;
+
+  if (phase.name in phaseSummaries) return 'completed';
+
+  if (blocked_phase === phase.name || (status === 'blocked' && currentPhase === phase.name)) {
+    return 'error';
+  }
+
+  if (currentPhase === phase.name) {
+    return status === 'running' ? 'active' : status === 'blocked' ? 'error' : 'pending';
+  }
+
+  return 'pending';
+}
+
+function connectorState(
+  above: PhaseTimelineState,
+  below: PhaseTimelineState,
+): 'done' | 'active' | 'error' | 'pending' {
+  if (above === 'error' || below === 'error') return 'error';
+  if (above === 'completed' && (below === 'active' || below === 'completed')) return 'active';
+  if (above === 'completed') return 'done';
+  return 'pending';
+}
+
+function currentPhaseNumber(
+  phases: JourneyPhaseRef[],
+  currentPhase: string | null,
+  phaseSummaries: Record<string, string>,
+): number {
+  if (phases.length === 0) return 0;
+  if (currentPhase) {
+    const idx = phases.findIndex((p) => p.name === currentPhase);
+    if (idx >= 0) return idx + 1;
+  }
+  const completed = phases.filter((p) => p.name in phaseSummaries).length;
+  if (completed >= phases.length) return phases.length;
+  return Math.max(completed, 1);
+}
+
+function formatPhaseTime(iso: string | null | undefined): string {
+  if (!iso) return '\u2014';
+  return new Date(iso).toLocaleTimeString();
+}
+
+function phaseTimingText(
+  state: PhaseTimelineState,
+  times: PhaseTimes | undefined,
+): string {
+  const dash = '\u2014';
+  if (state === 'pending') {
+    return '(started at: ' + dash + ', completed at: ' + dash + ')';
+  }
+  if (state === 'active') {
+    return '(started at: ' + formatPhaseTime(times?.started_at) + ', completed at: ' + dash + ')';
+  }
+  return '(started at: ' + formatPhaseTime(times?.started_at) + ', completed at: ' + formatPhaseTime(times?.completed_at) + ')';
+}
+
+function PhaseTimelineDot({ state }: { state: PhaseTimelineState }) {
+  if (state === 'completed') {
+    return (
+      <span className="phase-timeline-dot phase-timeline-dot--completed" aria-hidden="true">
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="none">
+          <path
+            d="M3.5 8.2 6.4 11 12.5 5"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+    );
+  }
+  if (state === 'active') {
+    return <span className="phase-timeline-dot phase-timeline-dot--active" aria-hidden="true" />;
+  }
+  if (state === 'error') {
+    return <span className="phase-timeline-dot phase-timeline-dot--error" aria-hidden="true" />;
+  }
+  return <span className="phase-timeline-dot phase-timeline-dot--pending" aria-hidden="true" />;
+}
+
+function PhaseProgress({
+  phases,
+  persona,
+}: {
+  phases: JourneyPhaseRef[];
+  persona: RunPersonaDetail;
+}) {
+  if (phases.length === 0) return null;
+
+  const states = phases.map((phase) => phaseState(phase, persona));
+  const phaseNum = currentPhaseNumber(
+    phases,
+    persona.current_phase,
+    persona.phase_summaries,
+  );
+  const isLive = persona.status === 'running';
+  const isErrored = persona.status === 'blocked';
+
+  return (
+    <div className="run-progress">
+      <div className="run-progress-header">
+        <span className="run-progress-label">
+          {isLive && persona.current_phase
+            ? `Phase ${phaseNum} of ${phases.length}: ${persona.current_phase}`
+            : isErrored && persona.blocked_phase
+              ? `Stopped at phase ${phaseNum} of ${phases.length}: ${persona.blocked_phase}`
+              : persona.status === 'completed'
+                ? `Completed all ${phases.length} phases`
+                : `Phase progress (${phaseNum} of ${phases.length})`}
+        </span>
+      </div>
+
+      <div className="phase-timeline" role="list" aria-label="Journey phases">
+        {phases.map((phase, index) => {
+          const state = states[index];
+          const lineState =
+            index < phases.length - 1
+              ? connectorState(state, states[index + 1])
+              : null;
+
+          return (
+            <div
+              key={phase.order}
+              className={`phase-timeline-item phase-timeline-item--${state}`}
+              role="listitem"
+              aria-current={state === 'active' ? 'step' : undefined}
+            >
+              <div className="phase-timeline-rail">
+                <PhaseTimelineDot state={state} />
+                {lineState && (
+                  <span
+                    className={`phase-timeline-line phase-timeline-line--${lineState}`}
+                    aria-hidden="true"
+                  />
+                )}
+              </div>
+              <span className="phase-timeline-label">
+                {phase.name}{' '}
+                <span className="phase-timeline-timing">
+                  {phaseTimingText(state, persona.phase_times?.[phase.name])}
+                </span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {isErrored && persona.blocked_reason && (
+        <p className="run-progress-meta run-progress-meta--error">{persona.blocked_reason}</p>
+      )}
+    </div>
+  );
+}
 
 export default function RunDetail() {
   const { id } = useParams<{ id: string }>();
@@ -16,7 +180,7 @@ export default function RunDetail() {
     enabled: !!id,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      if (status === 'pending' || status === 'running') return 5000;
+      if (status === 'pending' || status === 'running') return 3000;
       return false;
     },
   });
@@ -28,22 +192,11 @@ export default function RunDetail() {
 
   const [activePersonaIdx, setActivePersonaIdx] = useState(0);
   const [expandedFindings, setExpandedFindings] = useState<Set<string>>(new Set());
-  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
-
   const toggleFinding = (findingId: string) => {
     setExpandedFindings((prev) => {
       const next = new Set(prev);
       if (next.has(findingId)) next.delete(findingId);
       else next.add(findingId);
-      return next;
-    });
-  };
-
-  const togglePhase = (key: string) => {
-    setExpandedPhases((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
       return next;
     });
   };
@@ -55,8 +208,13 @@ export default function RunDetail() {
   const personaName = (personaId: string) =>
     allPersonas?.find((p) => p.id === personaId)?.name || personaId.slice(0, 8);
 
-  const allFindings = run.personas.flatMap((p) => p.findings);
-  const severityCounts = allFindings.reduce(
+  const activePersona: RunPersonaDetail | undefined = run.personas[activePersonaIdx];
+  const isRunActive = run.status === 'pending' || run.status === 'running';
+  const findingsPending =
+    activePersona?.status === 'running' || activePersona?.status === 'pending';
+
+  const personaFindings = activePersona?.findings ?? [];
+  const severityCounts = personaFindings.reduce(
     (acc, f) => {
       const key = f.severity.toLowerCase();
       acc[key] = (acc[key] || 0) + 1;
@@ -65,11 +223,8 @@ export default function RunDetail() {
     {} as Record<string, number>,
   );
 
-  const activePersona: RunPersonaDetail | undefined = run.personas[activePersonaIdx];
-
   return (
     <div className="page">
-      {/* Header */}
       <div className="run-header">
         <div className="run-header-top">
           <ScoreBadge score={run.score} size="large" />
@@ -88,45 +243,48 @@ export default function RunDetail() {
           {run.completed_at && (
             <span>Completed: {new Date(run.completed_at).toLocaleString()}</span>
           )}
+          {isRunActive && (
+            <span className="run-live-hint">Auto-refreshing every 3s</span>
+          )}
         </div>
       </div>
 
-      {/* Summary */}
-      <section className="section">
-        <h3>Findings Summary</h3>
-        <div className="summary-grid">
-          {['critical', 'high', 'medium', 'low', 'info'].map((sev) => (
-            <div key={sev} className="summary-card">
-              <span className="summary-count">{severityCounts[sev] || 0}</span>
-              <SeverityBadge severity={sev} />
-            </div>
-          ))}
-          <div className="summary-card">
-            <span className="summary-count">{allFindings.length}</span>
-            <span className="summary-label">Total</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Persona tabs */}
       {run.personas.length > 0 && (
-        <section className="section">
-          <h3>Personas</h3>
-          <div className="tab-bar">
-            {run.personas.map((p, idx) => (
-              <button
-                key={p.id}
-                className={`tab ${idx === activePersonaIdx ? 'tab--active' : ''}`}
-                onClick={() => setActivePersonaIdx(idx)}
-              >
-                {personaName(p.persona_id)}
-                <StatusBadge status={p.status} />
-              </button>
-            ))}
+        <section className="section persona-progress-panel">
+          <div className="persona-picker" role="tablist" aria-label="Personas">
+            {run.personas.map((p, idx) => {
+              const name = personaName(p.persona_id);
+              const isSelected = idx === activePersonaIdx;
+              const dotClass =
+                p.status === 'running'
+                  ? 'persona-picker-dot--live'
+                  : p.status === 'blocked'
+                    ? 'persona-picker-dot--error'
+                    : p.status === 'completed'
+                      ? 'persona-picker-dot--done'
+                      : 'persona-picker-dot--idle';
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isSelected}
+                  className={`persona-picker-item ${isSelected ? 'persona-picker-item--active' : ''}`}
+                  onClick={() => setActivePersonaIdx(idx)}
+                >
+                  <span className={`persona-picker-dot ${dotClass}`} aria-hidden="true" />
+                  <span className="persona-picker-name">{name}</span>
+                </button>
+              );
+            })}
           </div>
 
           {activePersona && (
             <div className="persona-detail">
+              {run.journey_phases?.length > 0 && (
+                <PhaseProgress phases={run.journey_phases} persona={activePersona} />
+              )}
+
               {activePersona.blocked_phase && (
                 <div className="blocked-notice">
                   <strong>Blocked at phase:</strong> {activePersona.blocked_phase}
@@ -136,34 +294,34 @@ export default function RunDetail() {
                 </div>
               )}
 
-              {/* Phase summaries */}
-              {Object.keys(activePersona.phase_summaries).length > 0 && (
-                <div className="phase-summaries">
-                  <h4>Phase Summaries</h4>
-                  {Object.entries(activePersona.phase_summaries).map(([phase, summary]) => (
-                    <div key={phase} className="phase-summary-item">
-                      <button
-                        className="phase-summary-toggle"
-                        onClick={() => togglePhase(`${activePersona.id}-${phase}`)}
-                      >
-                        <span className="phase-summary-name">{phase}</span>
-                        <span>
-                          {expandedPhases.has(`${activePersona.id}-${phase}`) ? '−' : '+'}
-                        </span>
-                      </button>
-                      {expandedPhases.has(`${activePersona.id}-${phase}`) && (
-                        <p className="phase-summary-text">{summary}</p>
-                      )}
+              <div className="findings-summary-section">
+                <h4>Findings Summary</h4>
+                <div className="summary-grid">
+                  {['critical', 'high', 'medium', 'low', 'info'].map((sev) => (
+                    <div key={sev} className="summary-card">
+                      <span className={`summary-count${findingsPending ? ' summary-count--pending' : ''}`}>
+                        {findingsPending ? 'pending' : severityCounts[sev] || 0}
+                      </span>
+                      <SeverityBadge severity={sev} />
                     </div>
                   ))}
+                  <div className="summary-card">
+                    <span className={`summary-count${findingsPending ? ' summary-count--pending' : ''}`}>
+                      {findingsPending ? 'pending' : personaFindings.length}
+                    </span>
+                    <span className="summary-label">Total</span>
+                  </div>
                 </div>
-              )}
+              </div>
 
-              {/* Findings */}
               <div className="findings-section">
                 <h4>Findings ({activePersona.findings.length})</h4>
                 {activePersona.findings.length === 0 ? (
-                  <p className="empty-state">No findings for this persona.</p>
+                  <p className="empty-state">
+                    {findingsPending
+                      ? 'Findings will appear here when the run completes.'
+                      : 'No findings for this persona.'}
+                  </p>
                 ) : (
                   <table className="data-table">
                     <thead>

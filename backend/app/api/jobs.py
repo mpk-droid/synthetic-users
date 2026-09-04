@@ -10,6 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.db.session import async_session, get_db
 from app.engine.runner import execute_orchestrated_run
@@ -22,10 +23,12 @@ from app.models.job import (
     RunPersonaStatus,
     RunStatus,
 )
+from app.models.journey import Journey
 from app.models.persona import Persona
 from app.schemas.finding import FindingResponse
 from app.schemas.job import (
     AgentDonePayload,
+    AgentProgressUpdate,
     AgentStatusUpdate,
     JobCreate,
     JobResponse,
@@ -35,6 +38,227 @@ from app.schemas.job import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+MAX_ACTIVITY_ENTRIES = 200
+
+
+def _get_persona_activity(run: Run, persona_id: str) -> list[dict]:
+    activity = run.metadata_.get("activity", {}) if run.metadata_ else {}
+    return activity.get(str(persona_id), [])
+
+
+def _phase_times_from_activity(activity: list[dict]) -> dict[str, dict]:
+    """Derive per-phase started/completed timestamps from activity log."""
+    times: dict[str, dict] = {}
+    for entry in activity:
+        msg = entry.get("message", "")
+        at = entry.get("at")
+        event_type = entry.get("type", "")
+        if event_type == "phase" and msg.startswith("Started phase: "):
+            phase = msg.removeprefix("Started phase: ")
+            times.setdefault(phase, {})["started_at"] = at
+        elif event_type == "phase_completed" and msg.startswith("Completed phase: "):
+            phase = msg.removeprefix("Completed phase: ")
+            times.setdefault(phase, {})["completed_at"] = at
+    return times
+
+
+def _get_metadata_phase_times(run: Run, persona_id: str) -> dict[str, dict]:
+    metadata = run.metadata_ or {}
+    phase_times = metadata.get("phase_times", {})
+    return dict(phase_times.get(str(persona_id), {}))
+
+
+def _set_phase_time(
+    run: Run, persona_id: str, phase: str, field: str, value: str
+) -> None:
+    metadata = dict(run.metadata_ or {})
+    phase_times = dict(metadata.get("phase_times", {}))
+    persona_times = dict(phase_times.get(str(persona_id), {}))
+    phase_entry = dict(persona_times.get(phase, {}))
+    phase_entry[field] = value
+    persona_times[phase] = phase_entry
+    phase_times[str(persona_id)] = persona_times
+    metadata["phase_times"] = phase_times
+    run.metadata_ = metadata
+    flag_modified(run, "metadata_")
+
+
+def _parse_ts(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _fmt_ts(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).isoformat()
+
+
+def _collect_phase_hints(run: Run, persona_id: str) -> dict[str, dict[str, str]]:
+    """Metadata is authoritative; activity fills only missing fields."""
+    hints = dict(_get_metadata_phase_times(run, persona_id))
+    activity = _phase_times_from_activity(_get_persona_activity(run, persona_id))
+    for phase, entry in activity.items():
+        merged = dict(hints.get(phase, {}))
+        for key, value in entry.items():
+            if value and not merged.get(key):
+                merged[key] = value
+        hints[phase] = merged
+    return hints
+
+
+def _enforce_monotonic_phase_times(
+    result: dict[str, dict], ordered_names: list[str]
+) -> None:
+    """Ensure phase N completes before phase N+1 starts."""
+    for i in range(1, len(ordered_names)):
+        prev_name, name = ordered_names[i - 1], ordered_names[i]
+        prev_entry = result.setdefault(prev_name, {})
+        entry = result.setdefault(name, {})
+        prev_completed = _parse_ts(prev_entry.get("completed_at"))
+        started = _parse_ts(entry.get("started_at"))
+        if prev_completed and (started is None or started < prev_completed):
+            entry["started_at"] = _fmt_ts(prev_completed)
+            started = prev_completed
+        elif started and prev_completed is None:
+            prev_entry["completed_at"] = _fmt_ts(started)
+        completed_at = _parse_ts(entry.get("completed_at"))
+        if started and completed_at and completed_at < started:
+            entry["completed_at"] = entry["started_at"]
+
+
+def _build_persona_phase_times(
+    run: Run,
+    rp: RunPersona,
+    journey_phases: list[dict],
+) -> dict[str, dict]:
+    """Build monotonic per-phase timestamps from recorded events, with gap-filling."""
+    from datetime import timedelta
+
+    sorted_phases = sorted(journey_phases, key=lambda p: p["order"])
+    summaries = rp.phase_summaries or {}
+    hints = _collect_phase_hints(run, str(rp.persona_id))
+
+    run_end = _parse_ts(
+        run.completed_at.isoformat() if run.completed_at else None
+    ) or datetime.now(timezone.utc)
+    run_start = (
+        _parse_ts(run.started_at.isoformat() if run.started_at else None) or run_end
+    )
+    if run_end < run_start:
+        run_end = run_start
+
+    relevant: list[str] = []
+    for phase in sorted_phases:
+        name = phase["name"]
+        if name in summaries or rp.current_phase == name:
+            relevant.append(name)
+
+    if not relevant:
+        return {}
+
+    result: dict[str, dict] = {}
+    for name in relevant:
+        hint = hints.get(name, {})
+        entry: dict[str, str] = {}
+        if hint.get("started_at"):
+            entry["started_at"] = hint["started_at"]
+        if hint.get("completed_at") and name in summaries:
+            entry["completed_at"] = hint["completed_at"]
+        if entry:
+            result[name] = entry
+
+    _enforce_monotonic_phase_times(result, relevant)
+
+    if relevant[0] not in result:
+        result[relevant[0]] = {}
+    if not result[relevant[0]].get("started_at"):
+        result[relevant[0]]["started_at"] = _fmt_ts(run_start)
+
+    completed_names = [name for name in relevant if name in summaries]
+    if completed_names and not result.get(completed_names[-1], {}).get("completed_at"):
+        result.setdefault(completed_names[-1], {})["completed_at"] = _fmt_ts(run_end)
+
+    _enforce_monotonic_phase_times(result, relevant)
+
+    still_missing = []
+    for name in completed_names:
+        entry = result.get(name, {})
+        started = _parse_ts(entry.get("started_at"))
+        completed_at = _parse_ts(entry.get("completed_at"))
+        if not started or not completed_at or completed_at <= started:
+            still_missing.append(name)
+    if still_missing:
+        total_secs = max((run_end - run_start).total_seconds(), float(len(still_missing)))
+        slot_secs = total_secs / len(still_missing)
+        cursor = _parse_ts(result[relevant[0]].get("started_at")) or run_start
+        for name in completed_names:
+            entry = result.setdefault(name, {})
+            started = _parse_ts(entry.get("started_at"))
+            completed_at = _parse_ts(entry.get("completed_at"))
+            if started and completed_at and completed_at > started:
+                cursor = completed_at
+                continue
+            slot_start = cursor
+            slot_end = min(slot_start + timedelta(seconds=slot_secs), run_end)
+            if not entry.get("started_at"):
+                entry["started_at"] = _fmt_ts(slot_start)
+            if not entry.get("completed_at"):
+                entry["completed_at"] = _fmt_ts(slot_end)
+            cursor = _parse_ts(entry["completed_at"]) or slot_end
+
+    for name in relevant:
+        entry = result.get(name)
+        if not entry:
+            continue
+        started = _parse_ts(entry.get("started_at"))
+        completed_at = _parse_ts(entry.get("completed_at"))
+        if started and started < run_start:
+            entry["started_at"] = _fmt_ts(run_start)
+        if completed_at and completed_at > run_end:
+            entry["completed_at"] = _fmt_ts(run_end)
+
+    _enforce_monotonic_phase_times(result, relevant)
+    return {name: result[name] for name in relevant if name in result}
+
+
+async def reconcile_run(run_id: uuid.UUID, db: AsyncSession) -> None:
+    from app.engine.runner import finalize_run_if_complete
+
+    result = await db.execute(
+        select(Run).options(selectinload(Run.run_personas)).where(Run.id == run_id)
+    )
+    run = result.scalar_one_or_none()
+    if not run or run.status != RunStatus.running:
+        return
+
+    terminal = {RunPersonaStatus.completed, RunPersonaStatus.blocked}
+    if run.run_personas and all(rp.status in terminal for rp in run.run_personas):
+        await finalize_run_if_complete(str(run_id))
+        await db.refresh(run)
+        return
+
+    if run.started_at:
+        age = datetime.now(timezone.utc) - run.started_at
+        if age.total_seconds() > 3600 and all(
+            rp.status == RunPersonaStatus.pending for rp in run.run_personas
+        ):
+            run.status = RunStatus.failed
+            run.error = "Run orchestration was interrupted (no agent started)"
+            run.completed_at = datetime.now(timezone.utc)
+            await db.commit()
+
+
+def _append_persona_activity(run: Run, persona_id: str, entry: dict) -> None:
+    metadata = dict(run.metadata_ or {})
+    activity = dict(metadata.get("activity", {}))
+    key = str(persona_id)
+    entries = list(activity.get(key, []))
+    entries.append(entry)
+    activity[key] = entries[-MAX_ACTIVITY_ENTRIES:]
+    metadata["activity"] = activity
+    run.metadata_ = metadata
+    flag_modified(run, "metadata_")
 
 
 async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
@@ -213,6 +437,13 @@ async def list_runs(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Run).where(Run.job_id == job_id).order_by(Run.created_at.desc())
     )
+    runs = result.scalars().all()
+    for run in runs:
+        if run.status == RunStatus.running:
+            await reconcile_run(run.id, db)
+    result = await db.execute(
+        select(Run).where(Run.job_id == job_id).order_by(Run.created_at.desc())
+    )
     return result.scalars().all()
 
 
@@ -221,9 +452,13 @@ async def list_runs(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 @router.get("/runs/{run_id}")
 async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    await reconcile_run(run_id, db)
     result = await db.execute(
         select(Run)
         .options(
+            selectinload(Run.job)
+            .selectinload(Job.journey)
+            .selectinload(Journey.phases),
             selectinload(Run.run_personas).selectinload(RunPersona.findings),
             selectinload(Run.run_personas).selectinload(RunPersona.environment),
         )
@@ -233,9 +468,17 @@ async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     if not run:
         raise HTTPException(404, "Run not found")
 
+    journey_phases = []
+    if run.job and run.job.journey:
+        journey_phases = [
+            {"order": phase.order, "name": phase.name}
+            for phase in sorted(run.job.journey.phases, key=lambda p: p.order)
+        ]
+
     return {
         "id": str(run.id),
         "job_id": str(run.job_id),
+        "journey_phases": journey_phases,
         "status": run.status.value,
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "completed_at": run.completed_at.isoformat() if run.completed_at else None,
@@ -252,6 +495,8 @@ async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
                 "blocked_phase": rp.blocked_phase,
                 "blocked_reason": rp.blocked_reason,
                 "phase_summaries": rp.phase_summaries,
+                "phase_times": _build_persona_phase_times(run, rp, journey_phases),
+                "activity": _get_persona_activity(run, str(rp.persona_id)),
                 "environment": {
                     "id": str(rp.environment.id),
                     "name": rp.environment.name,
@@ -299,6 +544,67 @@ async def list_findings(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     return findings
 
 
+@router.post("/runs/{run_id}/progress")
+async def agent_progress(
+    run_id: uuid.UUID,
+    data: AgentProgressUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Agent reports incremental progress (tools, findings, phase completion)."""
+    rp = await _get_run_persona(run_id, data.persona_id, db)
+    run = await db.get(Run, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    entry = {
+        "at": datetime.now(timezone.utc).isoformat(),
+        "type": data.event_type,
+        "message": data.message,
+    }
+    _append_persona_activity(run, data.persona_id, entry)
+
+    if data.event_type == "phase_completed":
+        phase_name = data.data.get("phase", "")
+        summary = data.data.get("summary", "")
+        if phase_name:
+            _set_phase_time(
+                run, data.persona_id, phase_name, "completed_at", entry["at"]
+            )
+            summaries = dict(rp.phase_summaries or {})
+            summaries[phase_name] = summary
+            rp.phase_summaries = summaries
+            flag_modified(rp, "phase_summaries")
+
+    elif data.event_type == "finding":
+        f_data = data.data.get("finding")
+        if f_data:
+            existing = await db.execute(
+                select(FindingModel).where(
+                    FindingModel.run_persona_id == rp.id,
+                    FindingModel.title == f_data.get("title", ""),
+                    FindingModel.phase == f_data.get("phase", ""),
+                )
+            )
+            if existing.scalar_one_or_none() is None:
+                finding = FindingModel(
+                    run_persona_id=rp.id,
+                    severity=Severity(f_data["severity"]),
+                    category=f_data["category"],
+                    title=f_data["title"],
+                    description=f_data["description"],
+                    evidence=f_data["evidence"],
+                    file_path=f_data.get("file_path"),
+                    line_range=f_data.get("line_range"),
+                    suggestion=f_data.get("suggestion"),
+                    phase=f_data.get("phase", ""),
+                    verified=f_data.get("verified", True),
+                )
+                db.add(finding)
+
+    await db.commit()
+    return {"status": "ok"}
+
+
 # ── Agent endpoints (called by agent pods) ───────────────────────────
 
 
@@ -310,8 +616,24 @@ async def agent_status(
 ):
     """Agent reports which phase it's currently on."""
     rp = await _get_run_persona(run_id, data.persona_id, db)
+    previous_phase = rp.current_phase
     rp.status = RunPersonaStatus.running
     rp.current_phase = data.current_phase
+    run = await db.get(Run, run_id)
+    if run:
+        now = datetime.now(timezone.utc).isoformat()
+        if previous_phase and previous_phase != data.current_phase:
+            _set_phase_time(run, data.persona_id, previous_phase, "completed_at", now)
+        _set_phase_time(run, data.persona_id, data.current_phase, "started_at", now)
+        _append_persona_activity(
+            run,
+            data.persona_id,
+            {
+                "at": now,
+                "type": "phase",
+                "message": f"Started phase: {data.current_phase}",
+            },
+        )
     await db.commit()
     return {"status": "ok"}
 
@@ -333,7 +655,17 @@ async def agent_done(
     if data.blocked_reason:
         rp.blocked_reason = data.blocked_reason
 
+    existing = await db.execute(
+        select(FindingModel.title, FindingModel.phase).where(
+            FindingModel.run_persona_id == rp.id
+        )
+    )
+    existing_keys = {(row.title, row.phase) for row in existing.all()}
+
     for f_data in data.findings:
+        key = (f_data["title"], f_data.get("phase", ""))
+        if key in existing_keys:
+            continue
         finding = FindingModel(
             run_persona_id=rp.id,
             severity=Severity(f_data["severity"]),
@@ -349,10 +681,47 @@ async def agent_done(
         )
         db.add(finding)
 
+    run_row = await db.get(Run, run_id)
+    job_row = await db.get(Job, run_row.job_id) if run_row else None
+    if run_row and job_row:
+        journey_result = await db.execute(
+            select(Journey)
+            .options(selectinload(Journey.phases))
+            .where(Journey.id == job_row.journey_id)
+        )
+        journey = journey_result.scalar_one_or_none()
+        if journey:
+            journey_phases = [
+                {"order": p.order, "name": p.name}
+                for p in sorted(journey.phases, key=lambda p: p.order)
+            ]
+            built = _build_persona_phase_times(run_row, rp, journey_phases)
+            existing = _get_metadata_phase_times(run_row, data.persona_id)
+            for phase_name, phase_entry in built.items():
+                saved = existing.get(phase_name, {})
+                if phase_entry.get("started_at") and not saved.get("started_at"):
+                    _set_phase_time(
+                        run_row,
+                        data.persona_id,
+                        phase_name,
+                        "started_at",
+                        phase_entry["started_at"],
+                    )
+                if phase_entry.get("completed_at") and not saved.get("completed_at"):
+                    _set_phase_time(
+                        run_row,
+                        data.persona_id,
+                        phase_name,
+                        "completed_at",
+                        phase_entry["completed_at"],
+                    )
+
     await db.commit()
 
     from app.engine.orchestrator import notify_agent_done
+    from app.engine.runner import finalize_run_if_complete
 
+    await finalize_run_if_complete(str(run_id))
     notify_agent_done(str(run_id))
 
     return {"status": "ok"}

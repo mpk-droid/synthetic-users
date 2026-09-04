@@ -132,13 +132,32 @@ export interface FindingResponse {
   verified: boolean;
 }
 
+export interface JourneyPhaseRef {
+  order: number;
+  name: string;
+}
+
+export interface PhaseTimes {
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
+export interface RunActivityEntry {
+  at: string;
+  type: string;
+  message: string;
+}
+
 export interface RunPersonaDetail {
   id: string;
   persona_id: string;
   status: string;
+  current_phase: string | null;
   blocked_phase: string | null;
   blocked_reason: string | null;
   phase_summaries: Record<string, string>;
+  phase_times: Record<string, PhaseTimes>;
+  activity: RunActivityEntry[];
   environment: { id: string; name: string; image: string } | null;
   findings: FindingResponse[];
 }
@@ -165,6 +184,7 @@ export interface RunDetailResponse {
   score_rationale: string | null;
   error: string | null;
   created_at: string;
+  journey_phases: JourneyPhaseRef[];
   personas: RunPersonaDetail[];
 }
 

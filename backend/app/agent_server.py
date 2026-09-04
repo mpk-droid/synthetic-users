@@ -60,6 +60,40 @@ async def _run_agent_background(request: AgentRunRequest) -> None:
     async def on_event(event_type: str, data: dict) -> None:
         if event_type == "phase_started":
             await on_phase_started(data["phase"])
+        elif event_type == "phase_completed":
+            await _post(
+                f"{orchestrator_url}/progress",
+                {
+                    "persona_id": persona_id,
+                    "event_type": "phase_completed",
+                    "message": f"Completed phase: {data['phase']}",
+                    "data": {
+                        "phase": data["phase"],
+                        "summary": data.get("phase_summary", ""),
+                    },
+                },
+            )
+        elif event_type == "finding":
+            finding = data["finding"]
+            await _post(
+                f"{orchestrator_url}/progress",
+                {
+                    "persona_id": persona_id,
+                    "event_type": "finding",
+                    "message": f"Finding: {finding.get('title', 'untitled')}",
+                    "data": {"finding": finding},
+                },
+            )
+        elif event_type == "tool":
+            await _post(
+                f"{orchestrator_url}/progress",
+                {
+                    "persona_id": persona_id,
+                    "event_type": "tool",
+                    "message": data.get("message", ""),
+                    "data": {},
+                },
+            )
 
     try:
         await clone_repo(request.repo_url, str(clone_path), request.git_credentials)

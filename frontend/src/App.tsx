@@ -10,6 +10,8 @@ import NewRun from './pages/NewRun';
 import RunDetail from './pages/RunDetail';
 import Environments from './pages/Environments';
 import Findings from './pages/Findings';
+import About from './pages/About';
+import ApiDocs from './pages/ApiDocs';
 
 export default function App() {
   return (
@@ -25,6 +27,8 @@ export default function App() {
         <Route path="/findings" element={<Findings />} />
         <Route path="/runs/new" element={<NewRun />} />
         <Route path="/runs/:id" element={<RunDetail />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/api-docs" element={<ApiDocs />} />
       </Route>
     </Routes>
   );

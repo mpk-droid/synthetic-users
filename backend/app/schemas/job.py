@@ -60,3 +60,10 @@ class AgentDonePayload(BaseModel):
     findings: list[dict] = Field(default_factory=list)
     blocked_phase: str | None = None
     blocked_reason: str | None = None
+
+
+class AgentProgressUpdate(BaseModel):
+    persona_id: str
+    event_type: str  # phase_completed, tool, finding
+    message: str = ""
+    data: dict = Field(default_factory=dict)

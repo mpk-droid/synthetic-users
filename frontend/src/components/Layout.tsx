@@ -1,12 +1,15 @@
 import { NavLink, Outlet } from 'react-router-dom';
 
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: '~' },
-  { to: '/personas', label: 'Personas', icon: '~' },
-  { to: '/journeys', label: 'Journeys', icon: '~' },
-  { to: '/environments', label: 'Environments', icon: '~' },
-  { to: '/findings', label: 'Findings', icon: '~' },
-  { to: '/runs/new', label: 'New Run', icon: '~' },
+const mainNavItems = [
+  { to: '/', label: 'Dashboard' },
+  { to: '/personas', label: 'Personas' },
+  { to: '/journeys', label: 'Journeys' },
+  { to: '/environments', label: 'Environments' },
+];
+
+const resourceNavItems = [
+  { to: '/about', label: 'About' },
+  { to: '/api-docs', label: 'API Docs' },
 ];
 
 export default function Layout() {
@@ -17,7 +20,7 @@ export default function Layout() {
           <h1 className="sidebar-title">Synthetic Users</h1>
         </div>
         <nav className="sidebar-nav">
-          {navItems.map((item) => (
+          {mainNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -29,6 +32,20 @@ export default function Layout() {
               {item.label}
             </NavLink>
           ))}
+          <div className="sidebar-section">
+            <span className="sidebar-section__label">Resources</span>
+            {resourceNavItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `nav-link${isActive ? ' nav-link--active' : ''}`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
         </nav>
       </aside>
       <main className="main-content">

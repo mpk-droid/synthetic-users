@@ -91,6 +91,7 @@ async def run_persona_phase(
     tool_ctx: ToolContext,
     model: str,
     max_tokens: int = 4096,
+    on_event=None,
 ) -> str:
     """Run a single persona through one journey phase."""
     tool_schemas = get_all_tools()
@@ -131,6 +132,19 @@ async def run_persona_phase(
                         persona_name,
                     )
                     tool_ctx.record_tool_output(block.name, result_text)
+                    if on_event:
+                        detail = result_text[:120].replace("\n", " ")
+                        if len(result_text) > 120:
+                            detail += "..."
+                        await on_event(
+                            "tool",
+                            {
+                                "message": (
+                                    f"Used {block.name}"
+                                    + (f" — {detail}" if detail else "")
+                                ),
+                            },
+                        )
                     tool_results.append(
                         {
                             "type": "tool_result",
@@ -213,6 +227,7 @@ async def execute_agent_run(
                 tool_ctx=tool_ctx,
                 model=model,
                 max_tokens=max_tokens,
+                on_event=on_event,
             )
             phase_summaries[phase_name] = summary
 
@@ -249,6 +264,64 @@ async def execute_agent_run(
     }
 
 
+
+async def finalize_run_if_complete(run_id: str) -> bool:
+    """Score and mark run completed when all personas are terminal. Idempotent."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    from app.db.session import async_session
+    from app.models.job import (
+        Run,
+        RunPersonaStatus,
+        RunStatus,
+        TrafficLight,
+    )
+
+    async with async_session() as db:
+        result = await db.execute(
+            select(Run)
+            .options(
+                selectinload(Run.run_personas),
+                selectinload(Run.job),
+            )
+            .where(Run.id == run_id)
+        )
+        run = result.scalar_one_or_none()
+        if not run or run.status != RunStatus.running:
+            return False
+
+        terminal = {RunPersonaStatus.completed, RunPersonaStatus.blocked}
+        if not run.run_personas or not all(
+            rp.status in terminal for rp in run.run_personas
+        ):
+            return False
+
+        repo_url = run.job.repo_url if run.job else ""
+
+    all_findings = await _load_findings_from_db(run_id)
+    any_blocked = await _check_any_blocked(run_id)
+    score, rationale, _action_items, _agreement = score_run(all_findings, any_blocked)
+
+    async with async_session() as db:
+        result = await db.execute(select(Run).where(Run.id == run_id))
+        run = result.scalar_one_or_none()
+        if not run or run.status != RunStatus.running:
+            return False
+
+        run.status = RunStatus.completed
+        run.completed_at = datetime.now(timezone.utc)
+        run.score = TrafficLight(score)
+        run.score_rationale = rationale
+        await db.commit()
+
+    if repo_url:
+        await _upsert_global_findings(run_id, repo_url, all_findings)
+
+    logger.info("Run %s finalized with score %s", run_id, score)
+    return True
+
+
 async def execute_orchestrated_run(
     run_id: str,
     personas: list[dict],
@@ -276,27 +349,7 @@ async def execute_orchestrated_run(
         run_id=run_id,
     )
 
-    all_findings = await _load_findings_from_db(run_id)
-    any_blocked = await _check_any_blocked(run_id)
-
-    score, rationale, _action_items, _agreement = score_run(all_findings, any_blocked)
-
-    from app.db.session import async_session
-    from app.models.job import Run, RunStatus, TrafficLight
-
-    async with async_session() as db:
-        from sqlalchemy import select
-
-        result = await db.execute(select(Run).where(Run.id == run_id))
-        run = result.scalar_one_or_none()
-        if run:
-            run.status = RunStatus.completed
-            run.completed_at = datetime.now(timezone.utc)
-            run.score = TrafficLight(score)
-            run.score_rationale = rationale
-            await db.commit()
-
-    await _upsert_global_findings(run_id, repo_url, all_findings)
+    await finalize_run_if_complete(run_id)
 
 
 async def _load_findings_from_db(run_id: str) -> list[dict]:
