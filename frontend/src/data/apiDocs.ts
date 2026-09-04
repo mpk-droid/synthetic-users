@@ -1,4 +1,3 @@
-[lean-ctx] no compression applied (mode=cognitive): output was not smaller than the file — returning full content (3669 tok)
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface ApiEndpoint {
