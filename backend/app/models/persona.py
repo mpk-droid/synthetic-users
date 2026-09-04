@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Enum, ForeignKey, String, Text
+from sqlalchemy import Boolean, Enum, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,6 +31,3 @@ class Persona(TimestampMixin, Base):
     )
     system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     prompt_approved: Mapped[bool] = mapped_column(Boolean, default=False)
-    pack_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("persona_packs.id"), nullable=True
-    )

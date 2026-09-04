@@ -12,7 +12,6 @@ class PersonaCreate(BaseModel):
     perspective: str = Field(..., min_length=1)
     constraints: str = Field(..., min_length=1)
     expertise_level: str = Field(default="intermediate")
-    pack_id: uuid.UUID | None = None
 
 
 class PersonaUpdate(BaseModel):
@@ -33,7 +32,6 @@ class PersonaResponse(BaseModel):
     expertise_level: str
     system_prompt: str | None
     prompt_approved: bool
-    pack_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 

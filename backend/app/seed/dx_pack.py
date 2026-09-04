@@ -1,21 +1,20 @@
-"""Seed the built-in Developer Experience (DX) pack.
+"""Seed built-in DX personas and journey.
 
-Creates four personas (Priya, Sam, Dana, Kai) and a five-phase journey
-that covers the full developer evaluation experience. Idempotent — skips
-seeding if the built-in pack already exists.
+Creates four personas (Priya, Sam, Dana, Kai) and a five-phase journey.
+Idempotent — skips if the journey already exists.
 """
 
 from __future__ import annotations
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.db.session import async_session
 from app.engine.prompt_generator import generate_system_prompt
 from app.models.journey import Journey, JourneyPhase
-from app.models.pack import PersonaPack
 from app.models.persona import ExpertiseLevel, Persona
 
-# ── Persona definitions ──────────────────────────────────────────────
+DX_JOURNEY_NAME = "DX Evaluation Journey"
 
 _PERSONAS = [
     {
@@ -95,8 +94,6 @@ _PERSONAS = [
     },
 ]
 
-# ── Journey phase definitions ────────────────────────────────────────
-
 _PHASES = [
     {
         "order": 1,
@@ -163,21 +160,18 @@ _PHASES = [
 
 
 async def seed_dx_pack() -> None:
-    """Seed the built-in DX evaluation pack if it doesn't already exist."""
+    """Seed built-in DX personas and journey if not already present."""
     async with async_session() as db:
-        # Check if already seeded
         result = await db.execute(
-            select(PersonaPack).where(
-                PersonaPack.name == "Developer Experience (DX)",
-                PersonaPack.is_builtin.is_(True),
-            )
+            select(Journey)
+            .options(selectinload(Journey.phases))
+            .where(Journey.name == DX_JOURNEY_NAME)
         )
         if result.scalar_one_or_none() is not None:
             return
 
-        # Create the journey
         journey = Journey(
-            name="DX Evaluation Journey",
+            name=DX_JOURNEY_NAME,
             description=(
                 "Five-phase developer experience evaluation covering first "
                 "impressions, setup, local development, usage, and deployment."
@@ -186,43 +180,25 @@ async def seed_dx_pack() -> None:
         db.add(journey)
         await db.flush()
 
-        # Create phases
         for phase_data in _PHASES:
-            phase = JourneyPhase(journey_id=journey.id, **phase_data)
-            db.add(phase)
+            db.add(JourneyPhase(journey_id=journey.id, **phase_data))
 
-        # Create the pack
-        pack = PersonaPack(
-            name="Developer Experience (DX)",
-            description=(
-                "Built-in pack with four personas covering the full spectrum "
-                "of developer experience evaluation: leadership (Priya), "
-                "newcomer (Sam), senior IC (Dana), and platform/ops (Kai)."
-            ),
-            journey_id=journey.id,
-            is_builtin=True,
-        )
-        db.add(pack)
-        await db.flush()
-
-        # Create personas
         for persona_data in _PERSONAS:
-            system_prompt = generate_system_prompt(
-                name=persona_data["name"],
-                identity=persona_data["identity"],
-                perspective=persona_data["perspective"],
-                constraints=persona_data["constraints"],
+            db.add(
+                Persona(
+                    name=persona_data["name"],
+                    identity=persona_data["identity"],
+                    perspective=persona_data["perspective"],
+                    constraints=persona_data["constraints"],
+                    expertise_level=persona_data["expertise_level"],
+                    system_prompt=generate_system_prompt(
+                        name=persona_data["name"],
+                        identity=persona_data["identity"],
+                        perspective=persona_data["perspective"],
+                        constraints=persona_data["constraints"],
+                    ),
+                    prompt_approved=True,
+                )
             )
-            persona = Persona(
-                name=persona_data["name"],
-                identity=persona_data["identity"],
-                perspective=persona_data["perspective"],
-                constraints=persona_data["constraints"],
-                expertise_level=persona_data["expertise_level"],
-                system_prompt=system_prompt,
-                prompt_approved=True,
-                pack_id=pack.id,
-            )
-            db.add(persona)
 
         await db.commit()

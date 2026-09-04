@@ -11,7 +11,6 @@ import type {
   JourneyPhaseResponse,
   JourneyPhaseCreate,
   JourneyPhaseUpdate,
-  PackResponse,
   JobResponse,
   JobCreate,
   RunResponse,
@@ -111,16 +110,6 @@ export function updateJourneyPhase(journeyId: string, phaseId: string, data: Jou
 
 export function deleteJourneyPhase(journeyId: string, phaseId: string): Promise<void> {
   return request(`/api/journeys/${journeyId}/phases/${phaseId}`, { method: 'DELETE' });
-}
-
-// --- Packs ---
-
-export function getPacks(): Promise<PackResponse[]> {
-  return request('/api/packs');
-}
-
-export function clonePack(id: string): Promise<PackResponse> {
-  return request(`/api/packs/${id}/clone`, { method: 'POST' });
 }
 
 // --- Jobs & Runs ---

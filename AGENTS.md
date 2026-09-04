@@ -10,12 +10,12 @@ synthetic-users/
 │   ├── app/
 │   │   ├── main.py              # Orchestrator app entry, lifespan, static file serving
 │   │   ├── agent_server.py      # Agent container app (receives run requests, clones repos)
-│   │   ├── api/                 # Route handlers (personas, journeys, packs, jobs, prompts)
-│   │   ├── models/              # SQLAlchemy models (persona, journey, pack, job/run, finding)
+│   │   ├── api/                 # Route handlers (personas, journeys, jobs, prompts)
+│   │   ├── models/              # SQLAlchemy models (persona, journey, job/run, finding)
 │   │   ├── schemas/             # Pydantic request/response schemas
 │   │   ├── engine/              # LLM agent loop, tools, orchestrator, supervisor, prompt generator
 │   │   ├── db/                  # Async session factory
-│   │   └── seed/                # Built-in DX pack (Priya, Sam, Dana, Kai + 5-phase journey)
+│   │   └── seed/                # Built-in personas and journeys (DX + smoke test)
 │   ├── entrypoint.sh            # SU_ROLE dispatch (orchestrator vs agent)
 │   ├── alembic/                 # DB migrations
 │   └── pyproject.toml
@@ -63,7 +63,6 @@ In Cursor, use **Terminal → Run Task** (`Cmd+Shift+P` → "Tasks: Run Task") f
 
 - **Personas** are defined by structured fields (identity, perspective, constraints, expertise_level). The service generates a system prompt from these fields. Users review and approve the prompt before it's used in runs.
 - **Journeys** are ordered sequences of phases. Each phase has instructions that the persona follows independently.
-- **Packs** bundle personas + a journey. The built-in "DX Pack" ships with 4 personas (Priya/Sam/Dana/Kai) and a 5-phase journey.
 - **Jobs** trigger runs. A job specifies a `repo_url`, selected personas, and a journey. The orchestrator spins up one Docker container per persona, each clones the repo and runs through all journey phases.
 - **Engine** has two modes:
   - **Orchestrator** (`app/main.py`): receives jobs, manages agent container lifecycle via Docker SDK, collects findings, deduplicates, scores (GREEN/YELLOW/RED).
@@ -77,7 +76,8 @@ In Cursor, use **Terminal → Run Task** (`Cmd+Shift+P` → "Tasks: Run Task") f
 - `backend/app/engine/supervisor.py` — deterministic deduplication + scoring logic
 - `backend/app/engine/prompt_generator.py` — structured fields → system prompt
 - `backend/app/agent_server.py` — agent container FastAPI app (POST /run, GET /health)
-- `backend/app/seed/dx_pack.py` — built-in persona and journey definitions
+- `backend/app/seed/dx_pack.py` — built-in DX personas and journey
+- `backend/app/seed/test_pack.py` — built-in smoke-test personas and journey
 - `backend/app/api/jobs.py` — job creation + background orchestrated execution
 - `backend/entrypoint.sh` — SU_ROLE-based dispatch (orchestrator vs agent)
 
@@ -100,7 +100,7 @@ Copy `.env.example` to `.env` for local shell exports. Docker Compose reads `ANT
 
 ## Test runs (agents: always use these)
 
-When validating workflows, UI, cluster deploys, or LLM integration — **do not** use the DX pack unless explicitly testing full DX evaluation.
+When validating workflows, UI, cluster deploys, or LLM integration — **do not** use the full DX evaluation unless explicitly testing that path.
 
 | Use | Value |
 |-----|-------|

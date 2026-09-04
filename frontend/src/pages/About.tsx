@@ -1,3 +1,4 @@
+[lean-ctx] no compression applied (mode=cognitive): output was not smaller than the file — returning full content (1454 tok)
 export default function About() {
   return (
     <div className="page about-page">
@@ -86,13 +87,6 @@ export default function About() {
             </dd>
           </div>
           <div>
-            <dt>Pack</dt>
-            <dd>
-              A bundle of personas plus an optional journey. Built-in packs include the DX Pack
-              (full evaluation) and Smoke Test (fast workflow validation).
-            </dd>
-          </div>
-          <div>
             <dt>Job / Run</dt>
             <dd>
               A job is the configuration for an evaluation. Creating a job starts a run — one
@@ -139,11 +133,11 @@ export default function About() {
       </section>
 
       <section className="about-section card">
-        <h3>Built-in packs</h3>
+        <h3>Built-in fixtures</h3>
         <table className="data-table">
           <thead>
             <tr>
-              <th>Pack</th>
+              <th>Fixture</th>
               <th>Use when</th>
             </tr>
           </thead>
@@ -151,15 +145,15 @@ export default function About() {
             <tr>
               <td>Smoke Test</td>
               <td>
-                Fast validation — 3 test personas, 2-phase journey, tiny public repo. Use for
-                CI, UI, and integration testing.
+                Fast validation — Alex (Test), Blake (Test), Casey (Test) with the 2-phase Smoke
+                Test Journey and tiny public repo. Use for CI, UI, and integration testing.
               </td>
             </tr>
             <tr>
-              <td>DX Pack</td>
+              <td>DX Evaluation</td>
               <td>
-                Full developer-experience evaluation — 4 personas (Priya, Sam, Dana, Kai), 5-phase
-                journey covering setup through deployment.
+                Full developer-experience evaluation — Priya, Sam, Dana, Kai with the 5-phase DX
+                Evaluation Journey covering setup through deployment.
               </td>
             </tr>
           </tbody>

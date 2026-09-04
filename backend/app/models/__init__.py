@@ -12,7 +12,6 @@ from app.models.job import (
     TrafficLight,
 )
 from app.models.journey import Journey, JourneyPhase
-from app.models.pack import PersonaPack
 from app.models.persona import ExpertiseLevel, Persona
 
 __all__ = [
@@ -23,7 +22,6 @@ __all__ = [
     "Job",
     "Journey",
     "JourneyPhase",
-    "PersonaPack",
     "Persona",
     "Run",
     "RunPersona",

@@ -35,7 +35,6 @@ async def create_persona(data: PersonaCreate, db: AsyncSession = Depends(get_db)
         constraints=data.constraints,
         expertise_level=ExpertiseLevel(data.expertise_level),
         system_prompt=system_prompt,
-        pack_id=data.pack_id,
     )
     db.add(persona)
     await db.commit()

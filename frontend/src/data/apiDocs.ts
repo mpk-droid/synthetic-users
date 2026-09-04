@@ -1,3 +1,4 @@
+[lean-ctx] no compression applied (mode=cognitive): output was not smaller than the file — returning full content (3669 tok)
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface ApiEndpoint {
@@ -63,8 +64,7 @@ export const apiSections: ApiSection[] = [
   "identity": "string (required)",
   "perspective": "string (required)",
   "constraints": "string (required)",
-  "expertise_level": "novice | intermediate | expert (default: intermediate)",
-  "pack_id": "uuid | null (optional)"
+  "expertise_level": "novice | intermediate | expert (default: intermediate)"
 }`,
         responseBody: 'PersonaResponse',
         statusCodes: '201 — created',
@@ -178,46 +178,6 @@ export const apiSections: ApiSection[] = [
         summary: 'Delete phase',
         statusCodes: '204 · 404',
         notes: 'Remaining phases are renumbered to close the gap.',
-      },
-    ],
-  },
-  {
-    id: 'packs',
-    title: 'Packs',
-    description:
-      'Packs bundle personas with an optional journey. Built-in packs (DX Pack, Smoke Test) are seeded on startup.',
-    basePath: '/api/packs',
-    endpoints: [
-      {
-        method: 'GET',
-        path: '/api/packs',
-        summary: 'List packs',
-        responseBody: 'PackResponse[] (includes personas)',
-        statusCodes: '200',
-      },
-      {
-        method: 'POST',
-        path: '/api/packs',
-        summary: 'Create pack',
-        requestBody: '{ "name": "string (required)", "description": "string | null", "journey_id": "uuid | null" }',
-        responseBody: 'PackResponse',
-        statusCodes: '201',
-      },
-      {
-        method: 'GET',
-        path: '/api/packs/{pack_id}',
-        summary: 'Get pack',
-        responseBody: 'PackResponse',
-        statusCodes: '200 · 404',
-      },
-      {
-        method: 'POST',
-        path: '/api/packs/{pack_id}/clone',
-        summary: 'Clone pack',
-        description: 'Deep-copies the pack, all personas, and the linked journey (including phases).',
-        responseBody: 'PackResponse',
-        statusCodes: '201 · 404',
-        notes: 'Cloned personas have prompt_approved set to false.',
       },
     ],
   },

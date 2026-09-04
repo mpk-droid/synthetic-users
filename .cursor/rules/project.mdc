@@ -12,7 +12,7 @@ Full details in `AGENTS.md`. Critical boundaries:
 - Do not remove mandatory sections from `engine/prompt_generator.py`.
 - `seed/dx_pack.py` seeding is idempotent.
 
-**Test runs:** Use **Smoke Test Journey** + all three personas **Alex (Test)**, **Blake (Test)**, **Casey (Test)** with repo `https://github.com/mpk-droid/synthetic-users-smoke-test.git` — not the DX pack unless testing full evaluation.
+**Test runs:** Use **Smoke Test Journey** + all three personas **Alex (Test)**, **Blake (Test)**, **Casey (Test)** with repo `https://github.com/mpk-droid/synthetic-users-smoke-test.git` — not the full DX evaluation unless testing that path.
 
 **Local stack:** `docker compose up --build` → http://localhost:8000 (UI + API).
 

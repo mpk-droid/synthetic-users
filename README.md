@@ -39,7 +39,7 @@ The app is at **http://localhost:8000** — API, UI, and health check all on one
 
 **Via the UI:**
 1. Open http://localhost:8000
-2. The built-in "DX Pack" (4 personas + 5-phase journey) is pre-loaded
+2. Built-in personas and journeys (DX evaluation + smoke test) are pre-loaded on startup
 3. Click "New Run", enter a repository URL, select personas, and start
 
 **Via the API:**
@@ -165,7 +165,7 @@ curl -X POST http://localhost:8000/api/personas \
 curl -X POST http://localhost:8000/api/personas/<id>/approve-prompt
 ```
 
-## Built-in DX Pack
+## Built-in DX Evaluation
 
 Ships with 4 personas designed for evaluating developer tools and templates:
 
@@ -223,9 +223,6 @@ helm install synthetic-users ./chart \
 | `/api/journeys/{id}` | GET, PUT, DELETE | Get / update / delete journey |
 | `/api/journeys/{id}/phases` | POST | Add phase to journey |
 | `/api/journeys/{id}/phases/{pid}` | PUT, DELETE | Update / delete phase |
-| `/api/packs` | GET, POST | List / create packs |
-| `/api/packs/{id}` | GET | Get pack with personas |
-| `/api/packs/{id}/clone` | POST | Clone a pack |
 | `/api/jobs` | GET, POST | List / create+trigger jobs |
 | `/api/jobs/{id}` | GET | Get job details |
 | `/api/jobs/{id}/runs` | GET | List runs for a job |

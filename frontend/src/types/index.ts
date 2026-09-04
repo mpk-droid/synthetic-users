@@ -7,7 +7,6 @@ export interface PersonaResponse {
   expertise_level: string;
   system_prompt: string | null;
   prompt_approved: boolean;
-  pack_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -65,17 +64,6 @@ export interface JourneyCreate {
 export interface JourneyUpdate {
   name?: string;
   description?: string;
-}
-
-export interface PackResponse {
-  id: string;
-  name: string;
-  description: string | null;
-  journey_id: string | null;
-  is_builtin: boolean;
-  personas: PersonaResponse[];
-  created_at: string;
-  updated_at: string;
 }
 
 export interface EnvironmentResponse {
