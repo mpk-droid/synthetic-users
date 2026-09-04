@@ -1,3 +1,4 @@
+[lean-ctx] no compression applied (mode=cognitive): output was not smaller than the file — returning full content (1409 tok)
 export default function About() {
   return (
     <div className="page about-page">
@@ -144,8 +145,8 @@ export default function About() {
             <tr>
               <td>Smoke Test</td>
               <td>
-                Fast validation — Alex (Test), Blake (Test), Casey (Test) with the 2-phase Smoke
-                Test Journey and tiny public repo. Use for CI, UI, and integration testing.
+                Fast validation — Alex (Test), Blake (Test), Casey (Test) with the 4-phase
+                Smoke Test Journey and demo-service repo. Use for CI, UI, and integration testing.
               </td>
             </tr>
             <tr>

@@ -1,12 +1,13 @@
 """Seed built-in smoke-test personas and journey.
 
-Three lightweight personas and a two-phase journey against a tiny public repo.
-Idempotent — creates on first run, syncs persona names/prompts on later starts.
+Three personas and a four-phase journey against a small demo-service repo.
+Idempotent — syncs personas and journey phases on every orchestrator start.
 """
 
 from __future__ import annotations
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.db.session import async_session
 from app.engine.prompt_generator import generate_system_prompt
@@ -16,30 +17,49 @@ from app.models.persona import ExpertiseLevel, Persona
 SMOKE_TEST_REPO_URL = "https://github.com/mpk-droid/synthetic-users-smoke-test.git"
 SMOKE_TEST_JOURNEY_NAME = "Smoke Test Journey"
 SMOKE_PERSONA_NAMES = ("Alex (Test)", "Blake (Test)", "Casey (Test)")
+LEGACY_SMOKE_PHASE_NAMES = ("README Check", "File Scan")
 
 _PERSONAS = [
     {
         "name": "Alex (Test)",
         "legacy_names": ("Alex",),
-        "identity": "QA engineer running quick smoke tests before a release.",
-        "perspective": "Checks that docs exist and are readable. Flags only obvious gaps.",
-        "constraints": "Skims; does not deep-dive into implementation.",
+        "identity": "QA engineer validating a service repo before release.",
+        "perspective": (
+            "Checks documentation accuracy, setup steps, and whether a new tester "
+            "could run the project without guessing."
+        ),
+        "constraints": (
+            "Follows README and docs literally. Reports gaps between documented "
+            "and actual behavior."
+        ),
         "expertise_level": ExpertiseLevel.novice,
     },
     {
         "name": "Blake (Test)",
         "legacy_names": ("Blake",),
-        "identity": "Developer validating that a new CI pipeline works end-to-end.",
-        "perspective": "Confirms repo structure matches README claims. Notes missing files.",
-        "constraints": "Does not install dependencies or run long commands.",
+        "identity": "Backend developer reviewing a small Python HTTP service.",
+        "perspective": (
+            "Inspects project layout, dependencies, config, and whether CI/Docker "
+            "artifacts match what the README claims."
+        ),
+        "constraints": (
+            "Reads source files and config. May run short shell commands to verify "
+            "setup steps when safe."
+        ),
         "expertise_level": ExpertiseLevel.intermediate,
     },
     {
         "name": "Casey (Test)",
         "legacy_names": ("Casey",),
-        "identity": "Tech lead spot-checking a sample repo before a demo.",
-        "perspective": "Wants a clear one-line purpose statement and a sane layout.",
-        "constraints": "Time-boxed to a few minutes; keeps evaluation shallow.",
+        "identity": "Tech lead doing a pre-demo quality spot-check.",
+        "perspective": (
+            "Looks for security smells, missing files referenced in docs, and "
+            "blockers that would embarrass the team in a demo."
+        ),
+        "constraints": (
+            "Time-boxed but thorough enough to catch obvious DX and security issues. "
+            "Uses tools to verify claims in documentation."
+        ),
         "expertise_level": ExpertiseLevel.intermediate,
     },
 ]
@@ -47,23 +67,45 @@ _PERSONAS = [
 _PHASES = [
     {
         "order": 1,
-        "name": "README Check",
+        "name": "Documentation Review",
         "instructions": (
-            "Smoke test — keep this short. Read the README only (use read_file). "
-            "In one or two sentences, state what this repo is for. "
-            "Report at most one finding if the README is missing or unclear. "
-            "Do not install anything or run builds. "
-            "Call complete_phase as soon as you can summarize the README."
+            "Read README.md and any files under docs/ (use read_file, list_directory). "
+            "Summarize what this project does and who it is for. "
+            "Check whether the documented layout, prerequisites, and quick-start steps "
+            "are clear. Report findings for missing, contradictory, or broken documentation. "
+            "Take time to read carefully — aim for a substantive review before calling complete_phase."
         ),
     },
     {
         "order": 2,
-        "name": "File Scan",
+        "name": "Project Structure",
         "instructions": (
-            "Smoke test — keep this short. List the repository root (list_directory). "
-            "Confirm the README is present and note any unexpected missing files "
-            "mentioned in the README. Use at most 2–3 tool calls total, then "
-            "call complete_phase."
+            "Explore the repository tree (list_directory recursively from the root). "
+            "Compare the actual layout to what README and docs claim. "
+            "Check for dependency files (requirements.txt, pyproject.toml, Makefile, "
+            "Dockerfile, docker-compose.yml, CI config). "
+            "Report missing files, unexpected files, or structural issues. "
+            "Read key config files if present."
+        ),
+    },
+    {
+        "order": 3,
+        "name": "Code Review",
+        "instructions": (
+            "Read the application source under src/ (and tests/ if present). "
+            "Look for security issues (hardcoded secrets, debug mode in production paths), "
+            "error handling gaps, and mismatches between code and documentation. "
+            "Report concrete findings with file paths and evidence from tool output."
+        ),
+    },
+    {
+        "order": 4,
+        "name": "Setup Verification",
+        "instructions": (
+            "Attempt to follow the documented setup path: check Makefile targets, "
+            "try installing dependencies or running documented commands where reasonable. "
+            "You do not need a full production deploy — verify what works and what blocks you. "
+            "Report findings for broken commands, missing files, or steps that would stop a new developer."
         ),
     },
 ]
@@ -110,23 +152,51 @@ async def _sync_smoke_personas(db) -> None:
         persona.expertise_level = persona_data["expertise_level"]
         persona.system_prompt = _persona_prompt(persona_data)
         persona.prompt_approved = True
-    await db.commit()
+
+
+async def _sync_smoke_journey(journey: Journey, db) -> None:
+    """Update smoke-test journey phases (handles phase renames and additions)."""
+    by_name = {p.name: p for p in journey.phases}
+    target_names = {p["name"] for p in _PHASES}
+
+    for phase_data in _PHASES:
+        phase = by_name.get(phase_data["name"])
+        if phase is None:
+            db.add(JourneyPhase(journey_id=journey.id, **phase_data))
+        else:
+            phase.order = phase_data["order"]
+            phase.instructions = phase_data["instructions"]
+
+    for legacy_name in LEGACY_SMOKE_PHASE_NAMES:
+        if legacy_name in by_name and legacy_name not in target_names:
+            await db.delete(by_name[legacy_name])
+
+    journey.description = (
+        "Four-phase smoke evaluation: docs, structure, code, setup. "
+        f"Use with {SMOKE_TEST_REPO_URL}"
+    )
 
 
 async def seed_test_pack() -> None:
     """Seed or sync built-in smoke-test personas and journey."""
     async with async_session() as db:
         result = await db.execute(
-            select(Journey).where(Journey.name == SMOKE_TEST_JOURNEY_NAME)
+            select(Journey)
+            .options(selectinload(Journey.phases))
+            .where(Journey.name == SMOKE_TEST_JOURNEY_NAME)
         )
-        if result.scalar_one_or_none() is not None:
+        journey = result.scalar_one_or_none()
+
+        if journey is not None:
+            await _sync_smoke_journey(journey, db)
             await _sync_smoke_personas(db)
+            await db.commit()
             return
 
         journey = Journey(
             name=SMOKE_TEST_JOURNEY_NAME,
             description=(
-                "Two-phase quick check: README then root file scan. "
+                "Four-phase smoke evaluation: docs, structure, code, setup. "
                 f"Use with {SMOKE_TEST_REPO_URL}"
             ),
         )

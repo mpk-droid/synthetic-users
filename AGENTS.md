@@ -104,7 +104,7 @@ When validating workflows, UI, cluster deploys, or LLM integration — **do not*
 
 | Use | Value |
 |-----|-------|
-| **Journey** | **Smoke Test Journey** (2 phases) |
+| **Journey** | **Smoke Test Journey** (4 phases) |
 | **Personas** | **Alex (Test)**, **Blake (Test)**, **Casey (Test)** — use all three |
 | **Repo** | `https://github.com/mpk-droid/synthetic-users-smoke-test.git` |
 
