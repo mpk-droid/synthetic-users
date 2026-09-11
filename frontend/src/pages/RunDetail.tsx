@@ -81,7 +81,29 @@ function currentPhaseNumber(
 
 function formatPhaseTime(iso: string | null | undefined): string {
   if (!iso) return '\u2014';
-  return new Date(iso).toLocaleTimeString();
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatElapsed(
+  startedAt: string | null | undefined,
+  completedAt: string | null | undefined,
+  isActive: boolean,
+): string {
+  const dash = '\u2014';
+  if (!startedAt) return dash;
+  const start = new Date(startedAt).getTime();
+  const end = completedAt
+    ? new Date(completedAt).getTime()
+    : isActive
+      ? Date.now()
+      : Number.NaN;
+  if (Number.isNaN(end)) return dash;
+  const minutes = Math.max(0, Math.round((end - start) / 60_000));
+  if (minutes < 1) return '<1m';
+  return `${minutes}m`;
 }
 
 
@@ -128,7 +150,10 @@ function activityLogLine(entry: RunActivityEntry): string | null {
   if (entry.type === 'phase' && entry.message.startsWith('Started phase:')) {
     return null;
   }
-  const time = new Date(entry.at).toLocaleTimeString();
+  const time = new Date(entry.at).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
   return `${time}  ${entry.message}`;
 }
 
@@ -137,13 +162,16 @@ function phaseTimingText(
   times: PhaseTimes | undefined,
 ): string {
   const dash = '\u2014';
+  const start = formatPhaseTime(times?.started_at);
+  const end = state === 'active' ? dash : formatPhaseTime(times?.completed_at);
+  const elapsed =
+    state === 'pending'
+      ? dash
+      : formatElapsed(times?.started_at, times?.completed_at, state === 'active');
   if (state === 'pending') {
-    return '(started at: ' + dash + ', completed at: ' + dash + ')';
+    return `(start: ${dash}, end: ${dash}, elapsed: ${dash})`;
   }
-  if (state === 'active') {
-    return '(started at: ' + formatPhaseTime(times?.started_at) + ', completed at: ' + dash + ')';
-  }
-  return '(started at: ' + formatPhaseTime(times?.started_at) + ', completed at: ' + formatPhaseTime(times?.completed_at) + ')';
+  return `(start: ${start}, end: ${end}, elapsed: ${elapsed})`;
 }
 
 function PhaseTimelineDot({ state }: { state: PhaseTimelineState }) {
@@ -269,15 +297,15 @@ function PhaseProgress({
     defaultSelectedPhase(phases, persona),
   );
   const [userPickedPhase, setUserPickedPhase] = useState(false);
-  const timelineRef = useRef<HTMLDivElement>(null);
-  const [timelineHeight, setTimelineHeight] = useState<number>();
+  const leftColumnRef = useRef<HTMLDivElement>(null);
+  const [panelHeight, setPanelHeight] = useState<number>();
 
   useLayoutEffect(() => {
-    const el = timelineRef.current;
+    const el = leftColumnRef.current;
     if (!el) return;
 
     const syncHeight = () => {
-      setTimelineHeight(el.getBoundingClientRect().height);
+      setPanelHeight(el.getBoundingClientRect().height);
     };
 
     syncHeight();
@@ -322,26 +350,21 @@ function PhaseProgress({
 
   return (
     <div className="run-progress">
-      <div className="run-progress-header">
-        <span className="run-progress-label">
-          {isLive && persona.current_phase
-            ? `Phase ${phaseNum} of ${phases.length}: ${persona.current_phase}`
-            : isErrored && persona.blocked_phase
-              ? `Stopped at phase ${phaseNum} of ${phases.length}: ${persona.blocked_phase}`
-              : persona.status === 'completed'
-                ? `Completed all ${phases.length} phases`
-                : `Phase progress (${phaseNum} of ${phases.length})`}
-        </span>
-      </div>
+      <div className="run-progress-body">
+        <div className="run-progress-left" ref={leftColumnRef}>
+          <div className="run-progress-header">
+            <span className="run-progress-label">
+              {isLive && persona.current_phase
+                ? `Phase ${phaseNum} of ${phases.length}: ${persona.current_phase}`
+                : isErrored && persona.blocked_phase
+                  ? `Stopped at phase ${phaseNum} of ${phases.length}: ${persona.blocked_phase}`
+                  : persona.status === 'completed'
+                    ? `Completed all ${phases.length} phases`
+                    : `Phase progress (${phaseNum} of ${phases.length})`}
+            </span>
+          </div>
 
-      <div className="run-progress-split">
-        <div className="run-progress-timeline">
-          <div
-            className="phase-timeline"
-            ref={timelineRef}
-            role="list"
-            aria-label="Journey phases"
-          >
+          <div className="phase-timeline" role="list" aria-label="Journey phases">
             {phases.map((phase, index) => {
               const state = states[index];
               const lineState =
@@ -374,8 +397,8 @@ function PhaseProgress({
                       />
                     )}
                   </div>
-                  <span className="phase-timeline-label">
-                    {phase.name}{' '}
+                  <span className="phase-timeline-content">
+                    <span className="phase-timeline-name">{phase.name}</span>
                     <span className="phase-timeline-timing">
                       {phaseTimingText(state, persona.phase_times?.[phase.name])}
                     </span>
@@ -390,7 +413,7 @@ function PhaseProgress({
           phaseName={selectedPhase?.name ?? 'Phase'}
           lines={terminalLines}
           isLive={terminalLive}
-          height={timelineHeight}
+          height={panelHeight}
           emptyMessage={
             selectedState === 'pending'
               ? 'This phase has not started yet.'
