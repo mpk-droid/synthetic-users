@@ -84,7 +84,7 @@ export default function Findings() {
       </div>
 
       {Object.keys(repoGroups).length === 0 && (
-        <p className="empty-state">No findings yet. Run a job to generate findings.</p>
+        <p className="empty-state">No findings yet. Start a run to generate findings.</p>
       )}
 
       {Object.entries(repoGroups).map(([repoUrl, repoFindings]) => (

@@ -184,7 +184,7 @@ export const apiSections: ApiSection[] = [
     id: 'environments',
     title: 'Environments',
     description:
-      'Environments define container images agents can run in. Optional per persona when creating a job.',
+      'Environments define container images agents can run in. Optional per persona when creating a run.',
     basePath: '/api/environments',
     endpoints: [
       {
@@ -226,24 +226,25 @@ export const apiSections: ApiSection[] = [
     ],
   },
   {
-    id: 'jobs',
-    title: 'Jobs & Runs',
+    id: 'runs',
+    title: 'Runs',
     description:
-      'Jobs define what to evaluate. Creating a job also creates a run and starts orchestration in the background — one agent container per persona.',
-    basePath: '/api/jobs',
+      'Runs define and execute an evaluation. Creating a run starts orchestration in the background — one agent container per persona.',
+    basePath: '/api/runs',
     endpoints: [
       {
         method: 'GET',
-        path: '/api/jobs',
-        summary: 'List jobs',
-        responseBody: 'JobResponse[]',
+        path: '/api/runs',
+        summary: 'List runs',
+        responseBody: 'RunResponse[]',
         statusCodes: '200',
+        notes: 'Run status values: pending, running, completed, failed, cancelled.',
       },
       {
         method: 'POST',
-        path: '/api/jobs',
-        summary: 'Create job and start run',
-        description: 'Creates a job, spawns a run, and begins orchestrated execution asynchronously.',
+        path: '/api/runs',
+        summary: 'Create run',
+        description: 'Creates a run and begins orchestrated execution asynchronously.',
         requestBody: `{
   "name": "string (required, 1–255 chars)",
   "repo_url": "string (required) — git repository URL to evaluate",
@@ -254,28 +255,13 @@ export const apiSections: ApiSection[] = [
   "model": "string (default: nvidia/nemotron-3-ultra-550b-a55b)",
   "config": "object (optional) — LLM provider overrides, timeouts, etc."
 }`,
-        responseBody: 'JobResponse',
-        statusCodes: '201 — job created, run started in background',
+        responseBody: 'RunResponse',
+        statusCodes: '201 — run created and started in background',
         notes: 'An empty environment_ids array runs the persona in the default agent image.',
       },
       {
         method: 'GET',
-        path: '/api/jobs/{job_id}',
-        summary: 'Get job',
-        responseBody: 'JobResponse',
-        statusCodes: '200 · 404',
-      },
-      {
-        method: 'GET',
-        path: '/api/jobs/{job_id}/runs',
-        summary: 'List runs for a job',
-        responseBody: 'RunResponse[]',
-        statusCodes: '200 · 404',
-        notes: 'Run status values: pending, running, completed, failed, cancelled.',
-      },
-      {
-        method: 'GET',
-        path: '/api/jobs/runs/{run_id}',
+        path: '/api/runs/{run_id}',
         summary: 'Get run detail',
         description: 'Full run state including per-persona progress, phase times, activity, and findings.',
         responseBody: 'RunDetailResponse (personas[], journey_phases[], score, status, …)',
@@ -284,12 +270,19 @@ export const apiSections: ApiSection[] = [
       },
       {
         method: 'GET',
-        path: '/api/jobs/runs/{run_id}/findings',
+        path: '/api/runs/{run_id}/findings',
         summary: 'List run findings',
         description: 'All findings across every persona in the run.',
         responseBody: 'FindingResponse[]',
         statusCodes: '200 · 404',
         notes: 'Severity values: critical, high, medium, low, info.',
+      },
+      {
+        method: 'DELETE',
+        path: '/api/runs/{run_id}',
+        summary: 'Delete run',
+        description: 'Permanently deletes a run and its per-persona findings. Also removes global findings that reference this run.',
+        statusCodes: '204 — deleted · 404 — not found',
       },
     ],
   },
@@ -378,11 +371,11 @@ export const apiSections: ApiSection[] = [
     title: 'Agent Callbacks (internal)',
     description:
       'Agents report progress back to the orchestrator during a run. Called on the orchestrator API.',
-    basePath: '/api/jobs/runs/{run_id}',
+    basePath: '/api/runs/{run_id}',
     endpoints: [
       {
         method: 'POST',
-        path: '/api/jobs/runs/{run_id}/status',
+        path: '/api/runs/{run_id}/status',
         summary: 'Report current phase',
         requestBody: '{ "persona_id": "string", "current_phase": "string" }',
         responseBody: '{ "status": "ok" }',
@@ -391,7 +384,7 @@ export const apiSections: ApiSection[] = [
       },
       {
         method: 'POST',
-        path: '/api/jobs/runs/{run_id}/progress',
+        path: '/api/runs/{run_id}/progress',
         summary: 'Report incremental progress',
         requestBody: `{
   "persona_id": "string",
@@ -405,7 +398,7 @@ export const apiSections: ApiSection[] = [
       },
       {
         method: 'POST',
-        path: '/api/jobs/runs/{run_id}/done',
+        path: '/api/runs/{run_id}/done',
         summary: 'Report persona finished',
         requestBody: `{
   "persona_id": "string",

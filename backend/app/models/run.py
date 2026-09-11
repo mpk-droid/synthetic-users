@@ -3,6 +3,13 @@ from __future__ import annotations
 import enum
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.environment import Environment
+    from app.models.finding import Finding
+    from app.models.journey import Journey
+    from app.models.persona import Persona
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -32,8 +39,8 @@ class RunPersonaStatus(enum.Enum):
     blocked = "blocked"
 
 
-class Job(TimestampMixin, Base):
-    __tablename__ = "jobs"
+class Run(TimestampMixin, Base):
+    __tablename__ = "runs"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -44,24 +51,10 @@ class Job(TimestampMixin, Base):
     journey_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("journeys.id")
     )
-    model: Mapped[str] = mapped_column(String(255), default="nvidia/nemotron-3-ultra-550b-a55b")
+    model: Mapped[str] = mapped_column(
+        String(255), default="nvidia/nemotron-3-ultra-550b-a55b"
+    )
     config: Mapped[dict] = mapped_column(JSONB, default=dict)
-
-    runs: Mapped[list[Run]] = relationship(
-        back_populates="job", order_by="Run.created_at.desc()"
-    )
-    journey: Mapped["Journey"] = relationship("Journey")
-
-
-class Run(Base):
-    __tablename__ = "runs"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    job_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE")
-    )
     status: Mapped[RunStatus] = mapped_column(
         Enum(RunStatus), default=RunStatus.pending
     )
@@ -77,12 +70,9 @@ class Run(Base):
     score_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
 
-    job: Mapped[Job] = relationship(back_populates="runs")
-    run_personas: Mapped[list[RunPersona]] = relationship(
+    journey: Mapped["Journey"] = relationship("Journey")
+    run_personas: Mapped[list["RunPersona"]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
     )
 

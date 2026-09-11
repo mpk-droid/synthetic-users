@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PersonaEnvironmentSpec(BaseModel):
@@ -11,9 +11,9 @@ class PersonaEnvironmentSpec(BaseModel):
     environment_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
-class JobCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
-    repo_url: str = Field(..., min_length=1)
+class RunCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    repo_url: str
     persona_environments: list[PersonaEnvironmentSpec]
     journey_id: uuid.UUID
     model: str = "nvidia/nemotron-3-ultra-550b-a55b"
@@ -22,30 +22,21 @@ class JobCreate(BaseModel):
 
 class RunResponse(BaseModel):
     id: uuid.UUID
-    job_id: uuid.UUID
+    name: str
+    repo_url: str
+    persona_environments: list[PersonaEnvironmentSpec]
+    journey_id: uuid.UUID
+    model: str
+    config: dict
     status: str
     started_at: datetime | None
     completed_at: datetime | None
     score: str | None
     score_rationale: str | None
     error: str | None
-    metadata_: dict = Field(alias="metadata_")
     created_at: datetime
 
-    model_config = {"from_attributes": True, "populate_by_name": True}
-
-
-class JobResponse(BaseModel):
-    id: uuid.UUID
-    name: str
-    repo_url: str
-    persona_environments: list[dict]
-    journey_id: uuid.UUID
-    model: str
-    config: dict
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
 
 class AgentStatusUpdate(BaseModel):
@@ -53,17 +44,17 @@ class AgentStatusUpdate(BaseModel):
     current_phase: str
 
 
+class AgentProgressUpdate(BaseModel):
+    persona_id: str
+    event_type: str
+    message: str
+    data: dict = Field(default_factory=dict)
+
+
 class AgentDonePayload(BaseModel):
     persona_id: str
-    status: str  # completed or blocked
-    phase_summaries: dict[str, str] = Field(default_factory=dict)
+    status: str
+    phase_summaries: dict = Field(default_factory=dict)
     findings: list[dict] = Field(default_factory=list)
     blocked_phase: str | None = None
     blocked_reason: str | None = None
-
-
-class AgentProgressUpdate(BaseModel):
-    persona_id: str
-    event_type: str  # phase_completed, tool, finding
-    message: str = ""
-    data: dict = Field(default_factory=dict)

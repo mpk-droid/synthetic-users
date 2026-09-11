@@ -1,4 +1,4 @@
-"""Job and run management endpoints."""
+"""Run management endpoints."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
@@ -15,23 +15,21 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.db.session import async_session, get_db
 from app.engine.runner import execute_orchestrated_run
 from app.models.finding import Finding as FindingModel
-from app.models.finding import Severity
-from app.models.job import (
-    Job,
+from app.models.finding import GlobalFinding, Severity
+from app.models.journey import Journey
+from app.models.persona import Persona
+from app.models.run import (
     Run,
     RunPersona,
     RunPersonaStatus,
     RunStatus,
 )
-from app.models.journey import Journey
-from app.models.persona import Persona
 from app.schemas.finding import FindingResponse
-from app.schemas.job import (
+from app.schemas.run import (
     AgentDonePayload,
     AgentProgressUpdate,
     AgentStatusUpdate,
-    JobCreate,
-    JobResponse,
+    RunCreate,
     RunResponse,
 )
 
@@ -261,14 +259,9 @@ def _append_persona_activity(run: Run, persona_id: str, entry: dict) -> None:
     flag_modified(run, "metadata_")
 
 
-async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
-    """Background task: load job config, spin up agents, wait, score."""
+async def _run_engine(run_id: uuid.UUID) -> None:
+    """Background task: load run config, spin up agents, wait, score."""
     async with async_session() as db:
-        job = await db.get(Job, job_id)
-        if not job:
-            logger.error("Job %s not found for run %s", job_id, run_id)
-            return
-
         result = await db.execute(
             select(Run).options(selectinload(Run.run_personas)).where(Run.id == run_id)
         )
@@ -277,7 +270,7 @@ async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
             logger.error("Run %s not found", run_id)
             return
 
-        persona_ids = list({pe["persona_id"] for pe in job.persona_environments})
+        persona_ids = list({pe["persona_id"] for pe in run.persona_environments})
         personas_result = await db.execute(
             select(Persona).where(
                 Persona.id.in_([uuid.UUID(pid) for pid in persona_ids])
@@ -290,7 +283,7 @@ async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
         from app.models.journey import Journey
 
         env_ids = []
-        for pe in job.persona_environments:
+        for pe in run.persona_environments:
             env_ids.extend(pe.get("environment_ids", []))
         env_map: dict[str, Environment] = {}
         if env_ids:
@@ -304,12 +297,12 @@ async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
         journey_result = await db.execute(
             select(Journey)
             .options(selectinload(Journey.phases))
-            .where(Journey.id == job.journey_id)
+            .where(Journey.id == run.journey_id)
         )
         journey = journey_result.scalar_one_or_none()
         if not journey:
             run.status = RunStatus.failed
-            run.error = f"Journey {job.journey_id} not found"
+            run.error = f"Journey {run.journey_id} not found"
             await db.commit()
             return
 
@@ -358,9 +351,9 @@ async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
             run_id=str(run_id),
             personas=personas,
             phases=phases,
-            model=job.model,
-            config=job.config or {},
-            repo_url=job.repo_url,
+            model=run.model,
+            config=run.config or {},
+            repo_url=run.repo_url,
             run_persona_map=run_persona_map,
         )
     except Exception as e:
@@ -374,22 +367,27 @@ async def _run_engine(run_id: uuid.UUID, job_id: uuid.UUID) -> None:
                 await err_db.commit()
 
 
-# ── Job CRUD ─────────────────────────────────────────────────────────
+# ── Run CRUD ─────────────────────────────────────────────────────────
 
 
-@router.get("", response_model=list[JobResponse])
-async def list_jobs(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Job).order_by(Job.created_at.desc()))
+@router.get("", response_model=list[RunResponse])
+async def list_runs(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Run).order_by(Run.created_at.desc()))
+    runs = result.scalars().all()
+    for run in runs:
+        if run.status == RunStatus.running:
+            await reconcile_run(run.id, db)
+    result = await db.execute(select(Run).order_by(Run.created_at.desc()))
     return result.scalars().all()
 
 
-@router.post("", response_model=JobResponse, status_code=201)
-async def create_job(
-    data: JobCreate,
+@router.post("", response_model=RunResponse, status_code=201)
+async def create_run(
+    data: RunCreate,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
-    job = Job(
+    run = Run(
         name=data.name,
         repo_url=data.repo_url,
         persona_environments=[
@@ -398,11 +396,8 @@ async def create_job(
         journey_id=data.journey_id,
         model=data.model,
         config=data.config,
+        status=RunStatus.pending,
     )
-    db.add(job)
-    await db.flush()
-
-    run = Run(job_id=job.id, status=RunStatus.pending)
     db.add(run)
     await db.flush()
 
@@ -417,48 +412,38 @@ async def create_job(
             db.add(rp)
 
     await db.commit()
-    await db.refresh(job)
+    await db.refresh(run)
 
-    background_tasks.add_task(_run_engine, run.id, job.id)
+    background_tasks.add_task(_run_engine, run.id)
 
-    return job
-
-
-@router.get("/{job_id}", response_model=JobResponse)
-async def get_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    job = await db.get(Job, job_id)
-    if not job:
-        raise HTTPException(404, "Job not found")
-    return job
+    return run
 
 
-@router.get("/{job_id}/runs", response_model=list[RunResponse])
-async def list_runs(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Run).where(Run.job_id == job_id).order_by(Run.created_at.desc())
+@router.delete("/{run_id}", status_code=204)
+async def delete_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    run = await db.get(Run, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    await db.execute(
+        delete(GlobalFinding).where(
+            or_(
+                GlobalFinding.first_seen_run_id == run_id,
+                GlobalFinding.last_seen_run_id == run_id,
+            )
+        )
     )
-    runs = result.scalars().all()
-    for run in runs:
-        if run.status == RunStatus.running:
-            await reconcile_run(run.id, db)
-    result = await db.execute(
-        select(Run).where(Run.job_id == job_id).order_by(Run.created_at.desc())
-    )
-    return result.scalars().all()
+    await db.delete(run)
+    await db.commit()
 
 
-# ── Run detail ───────────────────────────────────────────────────────
-
-
-@router.get("/runs/{run_id}")
+@router.get("/{run_id}")
 async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     await reconcile_run(run_id, db)
     result = await db.execute(
         select(Run)
         .options(
-            selectinload(Run.job)
-            .selectinload(Job.journey)
-            .selectinload(Journey.phases),
+            selectinload(Run.journey).selectinload(Journey.phases),
             selectinload(Run.run_personas).selectinload(RunPersona.findings),
             selectinload(Run.run_personas).selectinload(RunPersona.environment),
         )
@@ -469,15 +454,17 @@ async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "Run not found")
 
     journey_phases = []
-    if run.job and run.job.journey:
+    if run.journey:
         journey_phases = [
             {"order": phase.order, "name": phase.name}
-            for phase in sorted(run.job.journey.phases, key=lambda p: p.order)
+            for phase in sorted(run.journey.phases, key=lambda p: p.order)
         ]
 
     return {
         "id": str(run.id),
-        "job_id": str(run.job_id),
+        "name": run.name,
+        "repo_url": run.repo_url,
+        "journey_id": str(run.journey_id),
         "journey_phases": journey_phases,
         "status": run.status.value,
         "started_at": run.started_at.isoformat() if run.started_at else None,
@@ -525,7 +512,7 @@ async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.get("/runs/{run_id}/findings", response_model=list[FindingResponse])
+@router.get("/{run_id}/findings", response_model=list[FindingResponse])
 async def list_findings(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Run)
@@ -544,7 +531,7 @@ async def list_findings(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     return findings
 
 
-@router.post("/runs/{run_id}/progress")
+@router.post("/{run_id}/progress")
 async def agent_progress(
     run_id: uuid.UUID,
     data: AgentProgressUpdate,
@@ -608,7 +595,7 @@ async def agent_progress(
 # ── Agent endpoints (called by agent pods) ───────────────────────────
 
 
-@router.post("/runs/{run_id}/status")
+@router.post("/{run_id}/status")
 async def agent_status(
     run_id: uuid.UUID,
     data: AgentStatusUpdate,
@@ -638,7 +625,7 @@ async def agent_status(
     return {"status": "ok"}
 
 
-@router.post("/runs/{run_id}/done")
+@router.post("/{run_id}/done")
 async def agent_done(
     run_id: uuid.UUID,
     data: AgentDonePayload,
@@ -682,12 +669,11 @@ async def agent_done(
         db.add(finding)
 
     run_row = await db.get(Run, run_id)
-    job_row = await db.get(Job, run_row.job_id) if run_row else None
-    if run_row and job_row:
+    if run_row:
         journey_result = await db.execute(
             select(Journey)
             .options(selectinload(Journey.phases))
-            .where(Journey.id == job_row.journey_id)
+            .where(Journey.id == run_row.journey_id)
         )
         journey = journey_result.scalar_one_or_none()
         if journey:

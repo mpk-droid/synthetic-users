@@ -50,8 +50,7 @@ export default function About() {
             container environments per persona.
           </li>
           <li>
-            <strong>Start a job</strong> — Provide a repository URL and choose personas. A job
-            creates a run and starts orchestration.
+            <strong>Start a run</strong> — Provide a repository URL, choose personas, and start orchestration.
           </li>
           <li>
             <strong>Agents execute</strong> — Each persona runs in its own container: clone repo →
@@ -86,10 +85,10 @@ export default function About() {
             </dd>
           </div>
           <div>
-            <dt>Job / Run</dt>
+            <dt>Run</dt>
             <dd>
-              A job is the configuration for an evaluation. Creating a job starts a run — one
-              execution of that configuration against a repository.
+              A run is an evaluation against a repository: chosen personas, journey, repo URL,
+              and model. Starting a run launches one agent container per persona.
             </dd>
           </div>
           <div>
@@ -114,7 +113,7 @@ export default function About() {
         <h3>Architecture (simplified)</h3>
         <pre className="about-diagram">{`┌─────────────────────────────────────────────┐
 │  Orchestrator (this UI + API)               │
-│  · manages jobs, personas, journeys         │
+│  · manages runs, personas, journeys         │
 │  · spawns agent containers                  │
 │  · collects findings, scores runs           │
 └──────────────┬──────────────────────────────┘

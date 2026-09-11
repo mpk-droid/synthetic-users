@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { getPersonas, getJourneys, getEnvironments, createJob, getJobRuns } from '../api/client';
+import { getPersonas, getJourneys, getEnvironments, createRun } from '../api/client';
 import type { PersonaEnvironmentSpec } from '../types';
 
 export default function NewRun() {
@@ -65,22 +65,16 @@ export default function NewRun() {
   };
 
   const createMutation = useMutation({
-    mutationFn: async () => {
-      const job = await createJob({
+    mutationFn: () =>
+      createRun({
         name: form.name,
         repo_url: form.repo_url,
         persona_environments: buildPersonaEnvironments(),
         journey_id: form.journey_id,
         model: form.model,
-      });
-      const runs = await getJobRuns(job.id);
-      if (runs.length > 0) {
-        return runs[runs.length - 1].id;
-      }
-      return job.id;
-    },
-    onSuccess: (runOrJobId) => {
-      navigate(`/runs/${runOrJobId}`);
+      }),
+    onSuccess: (run) => {
+      navigate(`/runs/${run.id}`);
     },
   });
 
@@ -100,7 +94,7 @@ export default function NewRun() {
 
       <form className="form" onSubmit={handleSubmit}>
         <div className="form-group">
-          <label htmlFor="name">Job Name</label>
+          <label htmlFor="name">Run Name</label>
           <input
             id="name"
             type="text"
@@ -219,7 +213,7 @@ export default function NewRun() {
           </button>
         </div>
         {createMutation.isError && (
-          <p className="error">Failed to create job: {(createMutation.error as Error).message}</p>
+          <p className="error">Failed to create run: {(createMutation.error as Error).message}</p>
         )}
       </form>
     </div>

@@ -51,19 +51,22 @@ curl http://localhost:8000/api/personas
 # List available journeys
 curl http://localhost:8000/api/journeys
 
-# Create a job (replace IDs from the responses above)
-curl -X POST http://localhost:8000/api/jobs \
+# Create a run (replace IDs from the responses above)
+curl -X POST http://localhost:8000/api/runs \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Evaluate my-service",
     "repo_url": "https://github.com/org/my-service.git",
-    "persona_ids": ["<persona-uuid>"],
+    "persona_environments": [{"persona_id": "<persona-uuid>", "environment_ids": []}],
     "journey_id": "<journey-uuid>",
-    "model": "claude-sonnet-4-6"
+    "model": "nvidia/nemotron-3-ultra-550b-a55b"
   }'
 
-# Check the run status (get run_id from /api/jobs/{job_id}/runs)
-curl http://localhost:8000/api/jobs/runs/<run-id>
+# Check run detail
+curl http://localhost:8000/api/runs/<run-id>
+
+# Delete a run
+curl -X DELETE http://localhost:8000/api/runs/<run-id>
 ```
 
 ## Architecture
@@ -223,11 +226,9 @@ helm install synthetic-users ./chart \
 | `/api/journeys/{id}` | GET, PUT, DELETE | Get / update / delete journey |
 | `/api/journeys/{id}/phases` | POST | Add phase to journey |
 | `/api/journeys/{id}/phases/{pid}` | PUT, DELETE | Update / delete phase |
-| `/api/jobs` | GET, POST | List / create+trigger jobs |
-| `/api/jobs/{id}` | GET | Get job details |
-| `/api/jobs/{id}/runs` | GET | List runs for a job |
-| `/api/jobs/runs/{id}` | GET | Run detail with findings |
-| `/api/jobs/runs/{id}/findings` | GET | All findings for a run |
+| `/api/runs` | GET, POST | List / create runs |
+| `/api/runs/{id}` | GET, DELETE | Run detail / delete run |
+| `/api/runs/{id}/findings` | GET | All findings for a run |
 | `/api/findings` | GET | Global findings across all runs |
 | `/api/findings/{id}` | PATCH | Update finding status |
 | `/api/prompts/generate` | POST | Preview prompt from structured fields |

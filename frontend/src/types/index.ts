@@ -87,24 +87,13 @@ export interface PersonaEnvironmentSpec {
   environment_ids: string[];
 }
 
-export interface JobCreate {
+export interface RunCreate {
   name: string;
   repo_url: string;
   persona_environments: PersonaEnvironmentSpec[];
   journey_id: string;
   model: string;
   config?: object;
-}
-
-export interface JobResponse {
-  id: string;
-  name: string;
-  repo_url: string;
-  persona_environments: PersonaEnvironmentSpec[];
-  journey_id: string;
-  model: string;
-  config: object;
-  created_at: string;
 }
 
 export interface FindingResponse {
@@ -152,7 +141,12 @@ export interface RunPersonaDetail {
 
 export interface RunResponse {
   id: string;
-  job_id: string;
+  name: string;
+  repo_url: string;
+  persona_environments: PersonaEnvironmentSpec[];
+  journey_id: string;
+  model: string;
+  config: object;
   status: string;
   started_at: string | null;
   completed_at: string | null;
@@ -164,7 +158,9 @@ export interface RunResponse {
 
 export interface RunDetailResponse {
   id: string;
-  job_id: string;
+  name: string;
+  repo_url: string;
+  journey_id: string;
   status: string;
   started_at: string | null;
   completed_at: string | null;

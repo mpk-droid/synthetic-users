@@ -11,8 +11,7 @@ import type {
   JourneyPhaseResponse,
   JourneyPhaseCreate,
   JourneyPhaseUpdate,
-  JobResponse,
-  JobCreate,
+  RunCreate,
   RunResponse,
   RunDetailResponse,
 } from '../types';
@@ -112,29 +111,25 @@ export function deleteJourneyPhase(journeyId: string, phaseId: string): Promise<
   return request(`/api/journeys/${journeyId}/phases/${phaseId}`, { method: 'DELETE' });
 }
 
-// --- Jobs & Runs ---
+// --- Runs ---
 
-export function getJobs(): Promise<JobResponse[]> {
-  return request('/api/jobs');
+export function getRuns(): Promise<RunResponse[]> {
+  return request('/api/runs');
 }
 
-export function getJob(id: string): Promise<JobResponse> {
-  return request(`/api/jobs/${id}`);
-}
-
-export function createJob(data: JobCreate): Promise<JobResponse> {
-  return request('/api/jobs', {
+export function createRun(data: RunCreate): Promise<RunResponse> {
+  return request('/api/runs', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export function getJobRuns(jobId: string): Promise<RunResponse[]> {
-  return request(`/api/jobs/${jobId}/runs`);
+export function getRunDetail(runId: string): Promise<RunDetailResponse> {
+  return request(`/api/runs/${runId}`);
 }
 
-export function getRunDetail(runId: string): Promise<RunDetailResponse> {
-  return request(`/api/jobs/runs/${runId}`);
+export function deleteRun(runId: string): Promise<void> {
+  return request(`/api/runs/${runId}`, { method: 'DELETE' });
 }
 
 // --- Prompts ---

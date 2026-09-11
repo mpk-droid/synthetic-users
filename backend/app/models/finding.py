@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.run import RunPersona
 import uuid
 
 from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, Text

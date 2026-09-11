@@ -182,7 +182,7 @@ async def execute_agent_run(
         persona: Dict with id, name, system_prompt.
         phases: List of dicts with name, instructions, order.
         model: Anthropic model ID.
-        config: Job config dict (timeouts, vertex settings, etc.).
+        config: Run config dict (timeouts, vertex settings, etc.).
         workspace_dir: Path to the cloned repository.
         on_event: Optional async callback(event_type, data) for progress.
 
@@ -271,7 +271,7 @@ async def finalize_run_if_complete(run_id: str) -> bool:
     from sqlalchemy.orm import selectinload
 
     from app.db.session import async_session
-    from app.models.job import (
+    from app.models.run import (
         Run,
         RunPersonaStatus,
         RunStatus,
@@ -283,7 +283,6 @@ async def finalize_run_if_complete(run_id: str) -> bool:
             select(Run)
             .options(
                 selectinload(Run.run_personas),
-                selectinload(Run.job),
             )
             .where(Run.id == run_id)
         )
@@ -297,7 +296,7 @@ async def finalize_run_if_complete(run_id: str) -> bool:
         ):
             return False
 
-        repo_url = run.job.repo_url if run.job else ""
+        repo_url = run.repo_url
 
     all_findings = await _load_findings_from_db(run_id)
     any_blocked = await _check_any_blocked(run_id)
@@ -358,7 +357,7 @@ async def _load_findings_from_db(run_id: str) -> list[dict]:
     from sqlalchemy.orm import selectinload
 
     from app.db.session import async_session
-    from app.models.job import Run, RunPersona
+    from app.models.run import Run, RunPersona
 
     async with async_session() as db:
         result = await db.execute(
@@ -395,7 +394,7 @@ async def _check_any_blocked(run_id: str) -> bool:
     from sqlalchemy import select
 
     from app.db.session import async_session
-    from app.models.job import Run, RunPersona
+    from app.models.run import Run, RunPersona
 
     async with async_session() as db:
         result = await db.execute(

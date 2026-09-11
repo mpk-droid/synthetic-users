@@ -10,11 +10,11 @@ synthetic-users/
 │   ├── app/
 │   │   ├── main.py              # Orchestrator app entry, lifespan, static file serving
 │   │   ├── agent_server.py      # Agent container app (receives run requests, clones repos)
-│   │   ├── api/                 # Route handlers (personas, journeys, jobs, prompts)
-│   │   ├── models/              # SQLAlchemy models (persona, journey, job/run, finding)
+│   │   ├── api/                 # Route handlers (personas, journeys, runs, prompts)
+│   │   ├── models/              # SQLAlchemy models (persona, journey, run, finding)
 │   │   ├── schemas/             # Pydantic request/response schemas
 │   │   ├── engine/              # LLM agent loop, tools, orchestrator, supervisor, prompt generator
-│   │   ├── db/                  # Async session factory
+│   │   ├── db/                  # Async session factory + startup migrations
 │   │   └── seed/                # Built-in personas and journeys (DX + smoke test)
 │   ├── entrypoint.sh            # SU_ROLE dispatch (orchestrator vs agent)
 │   ├── alembic/                 # DB migrations
@@ -63,9 +63,9 @@ In Cursor, use **Terminal → Run Task** (`Cmd+Shift+P` → "Tasks: Run Task") f
 
 - **Personas** are defined by structured fields (identity, perspective, constraints, expertise_level). The service generates a system prompt from these fields. Users review and approve the prompt before it's used in runs.
 - **Journeys** are ordered sequences of phases. Each phase has instructions that the persona follows independently.
-- **Jobs** trigger runs. A job specifies a `repo_url`, selected personas, and a journey. The orchestrator spins up one Docker container per persona, each clones the repo and runs through all journey phases.
+- **Runs** evaluate a target repo. A run specifies a `repo_url`, selected personas, and a journey. The orchestrator spins up one Docker container per persona, each clones the repo and runs through all journey phases.
 - **Engine** has two modes:
-  - **Orchestrator** (`app/main.py`): receives jobs, manages agent container lifecycle via Docker SDK, collects findings, deduplicates, scores (GREEN/YELLOW/RED).
+  - **Orchestrator** (`app/main.py`): receives runs, manages agent container lifecycle via Docker SDK, collects findings, deduplicates, scores (GREEN/YELLOW/RED).
   - **Agent** (`app/agent_server.py`): clones the repo, runs the LLM tool-use loop (Claude via Anthropic SDK), reports findings back to the orchestrator.
 
 ## Key Files
@@ -78,7 +78,7 @@ In Cursor, use **Terminal → Run Task** (`Cmd+Shift+P` → "Tasks: Run Task") f
 - `backend/app/agent_server.py` — agent container FastAPI app (POST /run, GET /health)
 - `backend/app/seed/dx_pack.py` — built-in DX personas and journey
 - `backend/app/seed/test_pack.py` — built-in smoke-test personas and journey
-- `backend/app/api/jobs.py` — job creation + background orchestrated execution
+- `backend/app/api/runs.py` — run creation + background orchestrated execution
 - `backend/entrypoint.sh` — SU_ROLE-based dispatch (orchestrator vs agent)
 
 ## Environment Variables

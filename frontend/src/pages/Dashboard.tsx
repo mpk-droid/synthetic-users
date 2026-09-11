@@ -1,58 +1,37 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getJobs, getJobRuns } from '../api/client';
-import type { RunResponse } from '../types';
+import { deleteRun, getRuns } from '../api/client';
 import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
 
-interface DashboardRow {
-  jobId: string;
-  jobName: string;
-  run: RunResponse | null;
-  personaCount: number;
-  createdAt: string;
-}
-
 export default function Dashboard() {
   const navigate = useNavigate();
-
-  const jobsQuery = useQuery({
-    queryKey: ['jobs'],
-    queryFn: getJobs,
-  });
+  const queryClient = useQueryClient();
 
   const runsQuery = useQuery({
-    queryKey: ['dashboard-runs'],
-    queryFn: async () => {
-      const jobs = await getJobs();
-      const rows: DashboardRow[] = [];
-      for (const job of jobs) {
-        try {
-          const runs = await getJobRuns(job.id);
-          const latestRun = runs.length > 0 ? runs[runs.length - 1] : null;
-          rows.push({
-            jobId: job.id,
-            jobName: job.name,
-            run: latestRun,
-            personaCount: job.persona_environments.length,
-            createdAt: job.created_at,
-          });
-        } catch {
-          rows.push({
-            jobId: job.id,
-            jobName: job.name,
-            run: null,
-            personaCount: job.persona_environments.length,
-            createdAt: job.created_at,
-          });
-        }
-      }
-      return rows;
-    },
+    queryKey: ['runs'],
+    queryFn: getRuns,
     refetchInterval: 10000,
   });
 
-  const rows = runsQuery.data ?? [];
+  const deleteMutation = useMutation({
+    mutationFn: deleteRun,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['runs'] });
+    },
+  });
+
+  const runs = runsQuery.data ?? [];
+
+  const handleDelete = (runId: string, runName: string) => {
+    if (
+      window.confirm(
+        `Delete run "${runName}"? This permanently removes the run and its findings.`,
+      )
+    ) {
+      deleteMutation.mutate(runId);
+    }
+  };
 
   return (
     <div className="page">
@@ -63,42 +42,59 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {jobsQuery.isLoading && <p className="loading">Loading jobs...</p>}
-      {jobsQuery.error && <p className="error">Failed to load jobs.</p>}
+      {runsQuery.isLoading && <p className="loading">Loading runs...</p>}
+      {runsQuery.error && <p className="error">Failed to load runs.</p>}
+      {deleteMutation.error && (
+        <p className="error">Failed to delete run: {(deleteMutation.error as Error).message}</p>
+      )}
 
-      {rows.length === 0 && !jobsQuery.isLoading && (
+      {runs.length === 0 && !runsQuery.isLoading && (
         <p className="empty-state">No runs yet. Create one to get started.</p>
       )}
 
-      {rows.length > 0 && (
+      {runs.length > 0 && (
         <table className="data-table">
           <thead>
             <tr>
-              <th>Job Name</th>
+              <th>Run Name</th>
               <th>Score</th>
               <th>Status</th>
               <th>Personas</th>
               <th>Date</th>
+              <th aria-label="Actions" />
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {runs.map((run) => (
               <tr
-                key={row.jobId}
+                key={run.id}
                 className="data-table__row--clickable"
-                onClick={() => {
-                  if (row.run) navigate(`/runs/${row.run.id}`);
-                }}
+                onClick={() => navigate(`/runs/${run.id}`)}
               >
-                <td>{row.jobName}</td>
+                <td>{run.name}</td>
                 <td>
-                  <ScoreBadge score={row.run?.score ?? null} />
+                  <ScoreBadge score={run.score} />
                 </td>
                 <td>
-                  <StatusBadge status={row.run?.status ?? 'pending'} />
+                  <StatusBadge status={run.status} />
                 </td>
-                <td>{row.personaCount}</td>
-                <td>{new Date(row.createdAt).toLocaleDateString()}</td>
+                <td>{run.persona_environments.length}</td>
+                <td>{new Date(run.created_at).toLocaleDateString()}</td>
+                <td className="data-table__actions">
+                  <button
+                    type="button"
+                    className="btn btn--icon btn--danger-text data-table__delete"
+                    title={`Delete ${run.name}`}
+                    aria-label={`Delete ${run.name}`}
+                    disabled={deleteMutation.isPending}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(run.id, run.name);
+                    }}
+                  >
+                    ×
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

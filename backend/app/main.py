@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import environments, findings, jobs, journeys, personas, prompts
+from app.api import environments, findings, journeys, personas, prompts, runs
 from app.db.session import engine
 from app.models.base import Base
 from app.seed import run_seed
@@ -34,7 +34,7 @@ app.add_middleware(
 
 app.include_router(personas.router, prefix="/api/personas", tags=["personas"])
 app.include_router(journeys.router, prefix="/api/journeys", tags=["journeys"])
-app.include_router(jobs.router, prefix="/api/jobs", tags=["jobs"])
+app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
 app.include_router(findings.router, prefix="/api/findings", tags=["findings"])
 app.include_router(

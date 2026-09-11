@@ -98,7 +98,7 @@ class AgentOrchestrator(abc.ABC):
     def _build_orchestrator_url(self, run_id: str | None) -> str:
         host = os.environ.get("SU_ORCHESTRATOR_HOST", "localhost")
         port = os.environ.get("SU_ORCHESTRATOR_PORT", "8000")
-        return f"http://{host}:{port}/api/jobs/runs/{run_id}"
+        return f"http://{host}:{port}/api/runs/{run_id}"
 
     @abc.abstractmethod
     async def _start_agents(self, personas: list[dict]) -> list[str]:
