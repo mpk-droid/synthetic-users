@@ -784,6 +784,16 @@ h1, h2, h3, h4 {
   color: var(--color-gray-600);
 }
 
+.run-meta__elapsed {
+  font-weight: 600;
+  color: var(--color-gray-800);
+}
+
+.run-meta__elapsed--active {
+  color: var(--color-green);
+  font-weight: 700;
+}
+
 /* Summary grid */
 .summary-grid {
   display: flex;
@@ -920,6 +930,11 @@ h1, h2, h3, h4 {
 }
 
 /* Findings */
+.findings-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+}
+
 .findings-section__header {
   display: flex;
   align-items: center;

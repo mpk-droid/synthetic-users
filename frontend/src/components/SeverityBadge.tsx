@@ -1,5 +1,6 @@
 interface SeverityBadgeProps {
   severity: string;
+  showColon?: boolean;
 }
 
 const severityColors: Record<string, string> = {
@@ -30,7 +31,10 @@ function normalizeSeverityKey(severity: string): string {
   return key;
 }
 
-export default function SeverityBadge({ severity }: SeverityBadgeProps) {
+export default function SeverityBadge({
+  severity,
+  showColon = false,
+}: SeverityBadgeProps) {
   const key = normalizeSeverityKey(severity);
   const color = severityColors[key] || 'var(--color-gray-400)';
   const label = severityLabels[key] || severity;
@@ -43,6 +47,7 @@ export default function SeverityBadge({ severity }: SeverityBadgeProps) {
       }}
     >
       {label}
+      {showColon ? ':' : ''}
     </span>
   );
 }

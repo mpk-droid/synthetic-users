@@ -558,13 +558,14 @@ export default function RunDetail() {
         )}
         <div className="run-meta">
           {run.started_at && (
-            <span>Started at: {new Date(run.started_at).toLocaleString()}</span>
+            <span
+              className={`run-meta__elapsed${isRunActive ? ' run-meta__elapsed--active' : ''}`}
+            >
+              Elapsed: {formatElapsed(run.started_at, run.completed_at, isRunActive)}
+            </span>
           )}
           {run.started_at && (
-            <span>
-              Elapsed:{' '}
-              {formatElapsed(run.started_at, run.completed_at, isRunActive)}
-            </span>
+            <span>Started at: {new Date(run.started_at).toLocaleString()}</span>
           )}
           {run.completed_at && (
             <span>Completed: {new Date(run.completed_at).toLocaleString()}</span>
@@ -635,7 +636,7 @@ export default function RunDetail() {
                   <div className="findings-section__stats">
                     {FINDING_SEVERITIES.map((sev) => (
                       <div key={sev} className="findings-stat">
-                        <SeverityBadge severity={sev} />
+                        <SeverityBadge severity={sev} showColon />
                         <span
                           className={`findings-stat__count${findingsPending ? ' findings-stat__count--pending' : ''}`}
                         >
