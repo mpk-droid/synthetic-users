@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from app.models.run import RunPersona
 import uuid
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -65,8 +65,6 @@ class Finding(Base):
     line_range: Mapped[list[int] | None] = mapped_column(ARRAY(Integer), nullable=True)
     suggestion: Mapped[str | None] = mapped_column(Text, nullable=True)
     phase: Mapped[str] = mapped_column(String(255))
-    verified: Mapped[bool] = mapped_column(Boolean, default=True)
-
     run_persona: Mapped["RunPersona"] = relationship(
         "RunPersona", back_populates="findings"
     )

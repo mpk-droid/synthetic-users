@@ -1,15 +1,23 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import {
+  IconAbout,
+  IconApiDocs,
+  IconDashboard,
+  IconEnvironments,
+  IconJourneys,
+  IconPersonas,
+} from './NavIcons';
 
 const mainNavItems = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/personas', label: 'Personas' },
-  { to: '/journeys', label: 'Journeys' },
-  { to: '/environments', label: 'Environments' },
+  { to: '/', label: 'Dashboard', icon: IconDashboard },
+  { to: '/personas', label: 'Personas', icon: IconPersonas },
+  { to: '/journeys', label: 'Journeys', icon: IconJourneys },
+  { to: '/environments', label: 'Environments', icon: IconEnvironments },
 ];
 
 const resourceNavItems = [
-  { to: '/about', label: 'About' },
-  { to: '/api-docs', label: 'API Docs' },
+  { to: '/about', label: 'About', icon: IconAbout },
+  { to: '/api-docs', label: 'API Docs', icon: IconApiDocs },
 ];
 
 export default function Layout() {
@@ -20,31 +28,39 @@ export default function Layout() {
           <h1 className="sidebar-title">Synthetic Users</h1>
         </div>
         <nav className="sidebar-nav">
-          {mainNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                `nav-link${isActive ? ' nav-link--active' : ''}`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-          <div className="sidebar-section">
-            <span className="sidebar-section__label">Resources</span>
-            {resourceNavItems.map((item) => (
+          {mainNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === '/'}
                 className={({ isActive }) =>
                   `nav-link${isActive ? ' nav-link--active' : ''}`
                 }
               >
-                {item.label}
+                <Icon className="nav-link__icon" />
+                <span>{item.label}</span>
               </NavLink>
-            ))}
+            );
+          })}
+          <div className="sidebar-section">
+            <span className="sidebar-section__label">Resources</span>
+            {resourceNavItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `nav-link${isActive ? ' nav-link--active' : ''}`
+                  }
+                >
+                  <Icon className="nav-link__icon" />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
           </div>
         </nav>
       </aside>

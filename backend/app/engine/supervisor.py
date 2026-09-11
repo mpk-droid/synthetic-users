@@ -105,7 +105,7 @@ def _compute_score(findings: list[dict], any_blocked: bool) -> str:
 
 def _build_rationale(score: str, findings: list[dict], any_blocked: bool) -> str:
     if any_blocked:
-        return "RED: At least one persona's journey was blocked by a critical failure."
+        return "At least one persona's journey was blocked by a critical failure."
 
     counts: dict[str, int] = defaultdict(int)
     for f in findings:
@@ -114,24 +114,24 @@ def _build_rationale(score: str, findings: list[dict], any_blocked: bool) -> str
     if score == "RED":
         if counts["critical"] > 0:
             return (
-                f"RED: {counts['critical']} critical finding(s) "
+                f"{counts['critical']} critical finding(s) "
                 f"require immediate attention."
             )
         return (
-            f"RED: {counts['needs_attention']} finding(s) need attention "
+            f"{counts['needs_attention']} finding(s) need attention "
             f"before production use."
         )
 
     if score == "YELLOW":
         return (
-            f"YELLOW: {counts['needs_attention']} finding(s) "
+            f"{counts['needs_attention']} finding(s) "
             f"need attention before production use."
         )
 
     total = sum(counts.values())
     if total == 0:
-        return "GREEN: No issues found across all personas."
-    return f"GREEN: {total} minor finding(s) only — target is in good shape."
+        return "No issues found across all personas."
+    return f"{total} minor finding(s) only — target is in good shape."
 
 
 def _build_action_items(

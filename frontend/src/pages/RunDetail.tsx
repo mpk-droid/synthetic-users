@@ -12,7 +12,9 @@ import type {
 import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
 import SeverityBadge from '../components/SeverityBadge';
+import { IconExport } from '../components/NavIcons';
 import { formatElapsed } from '../utils/datetime';
+import { exportFindingsToCsv, sanitizeFilename } from '../utils/exportFindingsCsv';
 
 type PhaseTimelineState = 'completed' | 'active' | 'pending' | 'error';
 
@@ -23,6 +25,10 @@ function isPhaseErrored(phase: JourneyPhaseRef, persona: RunPersonaDetail): bool
 }
 
 const FINDING_SEVERITIES = ['critical', 'needs_attention', 'nits'] as const;
+
+function stripScorePrefix(message: string): string {
+  return message.replace(/^(GREEN|YELLOW|RED):\s*/i, '');
+}
 
 function bucketSeverity(severity: string): (typeof FINDING_SEVERITIES)[number] {
   const key = severity.toLowerCase().replace(/-/g, '_').replace(/ /g, '_');
@@ -553,7 +559,7 @@ export default function RunDetail() {
         </div>
         {(run.error || run.score_rationale) && (
           <p className={`run-rationale${run.error ? ' run-rationale--error' : ''}`}>
-            {run.error ?? run.score_rationale}
+            {stripScorePrefix(run.error ?? run.score_rationale ?? '')}
           </p>
         )}
         <div className="run-meta">
@@ -644,6 +650,27 @@ export default function RunDetail() {
                         </span>
                       </div>
                     ))}
+                    <button
+                      type="button"
+                      className="findings-export-btn"
+                      title="export to csv"
+                      aria-label="export to csv"
+                      disabled={filteredFindings.length === 0}
+                      onClick={() => {
+                        const personaLabel = activePersona
+                          ? sanitizeFilename(
+                              personaName(activePersona.persona_id),
+                            )
+                          : 'persona';
+                        const runLabel = sanitizeFilename(run.name);
+                        exportFindingsToCsv(
+                          filteredFindings,
+                          `${runLabel}-${personaLabel}-findings.csv`,
+                        );
+                      }}
+                    >
+                      <IconExport className="findings-export-btn__icon" />
+                    </button>
                   </div>
                 </div>
                 {personaFindings.length === 0 ? (
@@ -709,13 +736,12 @@ export default function RunDetail() {
                                 </select>
                               </label>
                             </th>
-                            <th>Verified</th>
                           </tr>
                         </thead>
                         <tbody>
                           {filteredFindings.length === 0 ? (
                             <tr>
-                              <td colSpan={5} className="data-table__empty">
+                              <td colSpan={4} className="data-table__empty">
                                 No findings match the current filters.
                               </td>
                             </tr>
@@ -732,17 +758,10 @@ export default function RunDetail() {
                                 <td>{f.category}</td>
                                 <td>{f.title}</td>
                                 <td>{f.phase}</td>
-                                <td>
-                                  <span
-                                    className={`badge ${f.verified ? 'badge--green' : 'badge--gray'}`}
-                                  >
-                                    {f.verified ? 'Yes' : 'No'}
-                                  </span>
-                                </td>
                               </tr>
                               {expandedFindings.has(f.id) && (
                                 <tr className="finding-detail-row">
-                                  <td colSpan={5}>
+                                  <td colSpan={4}>
                                     <div className="finding-detail">
                                       <div className="finding-description">
                                         <strong>Description</strong>

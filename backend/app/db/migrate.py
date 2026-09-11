@@ -102,3 +102,15 @@ def migrate_severity_levels(connection) -> None:
         )
     connection.execute(text("DROP TYPE severity"))
     connection.execute(text("ALTER TYPE severity_new RENAME TO severity"))
+
+def migrate_drop_finding_verified(connection) -> None:
+    """Drop the findings.verified column (evidence verification removed)."""
+    inspector = inspect(connection)
+    if "findings" not in inspector.get_table_names():
+        return
+
+    columns = {col["name"] for col in inspector.get_columns("findings")}
+    if "verified" not in columns:
+        return
+
+    connection.execute(text("ALTER TABLE findings DROP COLUMN verified"))

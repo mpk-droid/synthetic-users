@@ -502,7 +502,6 @@ async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
                         "file_path": f.file_path,
                         "suggestion": f.suggestion,
                         "phase": f.phase,
-                        "verified": f.verified,
                     }
                     for f in rp.findings
                 ],
@@ -584,7 +583,6 @@ async def agent_progress(
                     line_range=f_data.get("line_range"),
                     suggestion=f_data.get("suggestion"),
                     phase=f_data.get("phase", ""),
-                    verified=f_data.get("verified", True),
                 )
                 db.add(finding)
 
@@ -664,7 +662,6 @@ async def agent_done(
             line_range=f_data.get("line_range"),
             suggestion=f_data.get("suggestion"),
             phase=f_data.get("phase", ""),
-            verified=f_data.get("verified", True),
         )
         db.add(finding)
 

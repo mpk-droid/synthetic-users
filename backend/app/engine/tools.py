@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import difflib
 import logging
 import os
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
@@ -225,29 +223,7 @@ class ToolContext:
     workspace_dir: str
     command_timeout: int = 120
     build_timeout: int = 300
-    tool_outputs: list[tuple[str, str]] = field(default_factory=list)
     findings: list[dict] = field(default_factory=list)
-
-    def record_tool_output(self, tool_name: str, output: str) -> None:
-        self.tool_outputs.append((tool_name, output))
-
-    def verify_evidence(self, evidence: str) -> bool:
-        normalized_evidence = _normalize_whitespace(evidence.lower())
-        for _, output in self.tool_outputs:
-            normalized_output = _normalize_whitespace(output.lower())
-            if normalized_evidence in normalized_output:
-                return True
-        for _, output in self.tool_outputs:
-            ratio = difflib.SequenceMatcher(
-                None, normalized_evidence, _normalize_whitespace(output.lower())
-            ).ratio()
-            if ratio > 0.6:
-                return True
-        return False
-
-
-def _normalize_whitespace(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip()
 
 
 async def execute_tool(
@@ -366,8 +342,6 @@ def _tool_report_finding(
 ) -> str:
     from app.models.finding import normalize_severity
 
-    evidence = arguments["evidence"]
-    verified = ctx.verify_evidence(evidence)
     severity = normalize_severity(arguments["severity"]).value
 
     finding = {
@@ -375,21 +349,15 @@ def _tool_report_finding(
         "category": arguments["category"],
         "title": arguments["title"],
         "description": arguments["description"],
-        "evidence": evidence,
+        "evidence": arguments["evidence"],
         "file_path": arguments.get("file_path"),
         "line_range": arguments.get("line_range"),
         "suggestion": arguments.get("suggestion"),
         "phase": phase,
-        "verified": verified,
     }
     ctx.findings.append(finding)
 
-    status = (
-        "verified" if verified else "UNVERIFIED (evidence not found in tool outputs)"
-    )
-    return (
-        f"Finding recorded [{arguments['severity']}]: {arguments['title']} ({status})"
-    )
+    return f"Finding recorded [{arguments['severity']}]: {arguments['title']}" 
 
 
 def _resolve_safe_path(relative: str, workspace_dir: str) -> Path:

@@ -131,7 +131,6 @@ async def run_persona_phase(
                         phase_name,
                         persona_name,
                     )
-                    tool_ctx.record_tool_output(block.name, result_text)
                     if on_event:
                         detail = result_text[:120].replace("\n", " ")
                         if len(result_text) > 120:
@@ -388,7 +387,6 @@ async def _load_findings_from_db(run_id: str) -> list[dict]:
                         "line_range": f.line_range,
                         "suggestion": f.suggestion,
                         "phase": f.phase,
-                        "verified": f.verified,
                     }
                 )
         return findings

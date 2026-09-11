@@ -106,7 +106,6 @@ export interface FindingResponse {
   file_path: string | null;
   suggestion: string | null;
   phase: string;
-  verified: boolean;
 }
 
 export interface JourneyPhaseRef {

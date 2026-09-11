@@ -17,8 +17,6 @@ class FindingResponse(BaseModel):
     line_range: list[int] | None
     suggestion: str | None
     phase: str
-    verified: bool
-
     model_config = {"from_attributes": True}
 
 

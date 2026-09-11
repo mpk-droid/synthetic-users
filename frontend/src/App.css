@@ -126,7 +126,9 @@ h1, h2, h3, h4 {
 }
 
 .nav-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: var(--border-radius);
   color: var(--sidebar-text);
@@ -134,6 +136,13 @@ h1, h2, h3, h4 {
   font-weight: 500;
   transition: background 0.15s, color 0.15s;
   text-decoration: none;
+}
+
+.nav-link__icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.9;
 }
 
 .nav-link:hover {
@@ -980,6 +989,38 @@ h1, h2, h3, h4 {
   font-weight: 600;
   color: var(--color-gray-600);
   text-transform: lowercase;
+}
+
+.findings-export-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 2px;
+  padding: 0;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--border-radius);
+  background: var(--color-white);
+  color: var(--color-gray-600);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.findings-export-btn:hover:not(:disabled) {
+  background: var(--color-gray-50);
+  color: var(--color-gray-800);
+  border-color: var(--color-gray-300);
+}
+
+.findings-export-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.findings-export-btn__icon {
+  width: 16px;
+  height: 16px;
 }
 
 .finding-detail-row td {

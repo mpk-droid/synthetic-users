@@ -9,7 +9,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import environments, findings, journeys, personas, prompts, runs
-from app.db.migrate import migrate_merge_jobs_into_runs, migrate_severity_levels
+from app.db.migrate import (
+    migrate_drop_finding_verified,
+    migrate_merge_jobs_into_runs,
+    migrate_severity_levels,
+)
 from app.db.session import engine
 from app.models.base import Base
 from app.seed import run_seed
@@ -25,6 +29,8 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(migrate_merge_jobs_into_runs)
     async with engine.begin() as conn:
         await conn.run_sync(migrate_severity_levels)
+    async with engine.begin() as conn:
+        await conn.run_sync(migrate_drop_finding_verified)
     await run_seed()
     yield
 
