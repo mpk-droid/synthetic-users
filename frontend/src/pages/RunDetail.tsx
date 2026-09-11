@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getRunDetail, getPersonas } from '../api/client';
-import type { JourneyPhaseRef, PhaseTimes, RunPersonaDetail, FindingResponse } from '../types';
+import type {
+  JourneyPhaseRef,
+  PhaseTimes,
+  RunActivityEntry,
+  RunPersonaDetail,
+  FindingResponse,
+} from '../types';
 import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
 import SeverityBadge from '../components/SeverityBadge';
@@ -78,6 +84,54 @@ function formatPhaseTime(iso: string | null | undefined): string {
   return new Date(iso).toLocaleTimeString();
 }
 
+
+function defaultSelectedPhase(
+  phases: JourneyPhaseRef[],
+  persona: RunPersonaDetail,
+): string {
+  if (persona.current_phase && phases.some((p) => p.name === persona.current_phase)) {
+    return persona.current_phase;
+  }
+  const completed = phases.filter((p) => p.name in persona.phase_summaries);
+  if (completed.length > 0) return completed[completed.length - 1].name;
+  return phases[0]?.name ?? '';
+}
+
+function partitionActivityByPhase(
+  activity: RunActivityEntry[],
+  phases: JourneyPhaseRef[],
+): Record<string, RunActivityEntry[]> {
+  const result: Record<string, RunActivityEntry[]> = {};
+  for (const phase of phases) {
+    result[phase.name] = [];
+  }
+
+  let currentPhase: string | null = null;
+  for (const entry of activity) {
+    const started = entry.message.match(/^Started phase: (.+)$/);
+    if (entry.type === 'phase' && started) {
+      currentPhase = started[1];
+      continue;
+    }
+
+    const target =
+      currentPhase && result[currentPhase] ? currentPhase : phases[0]?.name;
+    if (target) {
+      result[target].push(entry);
+    }
+  }
+
+  return result;
+}
+
+function activityLogLine(entry: RunActivityEntry): string | null {
+  if (entry.type === 'phase' && entry.message.startsWith('Started phase:')) {
+    return null;
+  }
+  const time = new Date(entry.at).toLocaleTimeString();
+  return `${time}  ${entry.message}`;
+}
+
 function phaseTimingText(
   state: PhaseTimelineState,
   times: PhaseTimes | undefined,
@@ -128,6 +182,47 @@ function PhaseTimelineDot({ state }: { state: PhaseTimelineState }) {
   return <span className="phase-timeline-dot phase-timeline-dot--pending" aria-hidden="true" />;
 }
 
+
+function PhaseActivityTerminal({
+  phaseName,
+  lines,
+  isLive,
+  emptyMessage,
+}: {
+  phaseName: string;
+  lines: string[];
+  isLive: boolean;
+  emptyMessage: string;
+}) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isLive || !bodyRef.current) return;
+    bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+  }, [lines, isLive, phaseName]);
+
+  return (
+    <div className="phase-activity-terminal" aria-label={`Activity log for ${phaseName}`}>
+      <div className="phase-activity-terminal__chrome">
+        <span className="phase-activity-terminal__title">Activity</span>
+        {isLive && <span className="phase-activity-terminal__live">live</span>}
+      </div>
+      <div className="phase-activity-terminal__body" ref={bodyRef}>
+        <div className="phase-activity-terminal__phase">{phaseName}:</div>
+        {lines.length === 0 ? (
+          <p className="phase-activity-terminal__empty">{emptyMessage}</p>
+        ) : (
+          <ul className="phase-activity-terminal__list">
+            {lines.map((line, index) => (
+              <li key={`${index}-${line.slice(0, 40)}`}>{line}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PhaseProgress({
   phases,
   persona,
@@ -135,12 +230,39 @@ function PhaseProgress({
   phases: JourneyPhaseRef[];
   persona: RunPersonaDetail;
 }) {
+  const [selectedPhaseName, setSelectedPhaseName] = useState(() =>
+    defaultSelectedPhase(phases, persona),
+  );
+  const [userPickedPhase, setUserPickedPhase] = useState(false);
+
+  useEffect(() => {
+    setUserPickedPhase(false);
+    setSelectedPhaseName(defaultSelectedPhase(phases, persona));
+  }, [persona.id, phases]);
+
+  useEffect(() => {
+    if (!userPickedPhase && persona.current_phase) {
+      setSelectedPhaseName(persona.current_phase);
+    }
+  }, [persona.current_phase, userPickedPhase]);
+
   if (phases.length === 0) return null;
 
   const states = phases.map((phase) => phaseState(phase, persona));
   const phaseNum = currentPhaseNumber(phases, persona);
   const isLive = persona.status === 'running';
   const isErrored = persona.status === 'blocked';
+  const activityByPhase = partitionActivityByPhase(persona.activity ?? [], phases);
+  const selectedPhase =
+    phases.find((phase) => phase.name === selectedPhaseName) ?? phases[0];
+  const selectedState = selectedPhase
+    ? phaseState(selectedPhase, persona)
+    : 'pending';
+  const terminalLines = (activityByPhase[selectedPhase?.name ?? ''] ?? [])
+    .map(activityLogLine)
+    .filter((line): line is string => line !== null);
+  const terminalLive =
+    isLive && persona.current_phase === selectedPhase?.name && !isErrored;
 
   return (
     <div className="run-progress">
@@ -156,39 +278,63 @@ function PhaseProgress({
         </span>
       </div>
 
-      <div className="phase-timeline" role="list" aria-label="Journey phases">
-        {phases.map((phase, index) => {
-          const state = states[index];
-          const lineState =
-            index < phases.length - 1
-              ? connectorState(state, states[index + 1])
-              : null;
+      <div className="run-progress-split">
+        <div className="run-progress-timeline">
+          <div className="phase-timeline" role="list" aria-label="Journey phases">
+            {phases.map((phase, index) => {
+              const state = states[index];
+              const lineState =
+                index < phases.length - 1
+                  ? connectorState(state, states[index + 1])
+                  : null;
+              const isSelected = phase.name === selectedPhase?.name;
 
-          return (
-            <div
-              key={phase.order}
-              className={`phase-timeline-item phase-timeline-item--${state}`}
-              role="listitem"
-              aria-current={state === 'active' ? 'step' : undefined}
-            >
-              <div className="phase-timeline-rail">
-                <PhaseTimelineDot state={state} />
-                {lineState && (
-                  <span
-                    className={`phase-timeline-line phase-timeline-line--${lineState}`}
-                    aria-hidden="true"
-                  />
-                )}
-              </div>
-              <span className="phase-timeline-label">
-                {phase.name}{' '}
-                <span className="phase-timeline-timing">
-                  {phaseTimingText(state, persona.phase_times?.[phase.name])}
-                </span>
-              </span>
-            </div>
-          );
-        })}
+              return (
+                <button
+                  key={phase.order}
+                  type="button"
+                  className={`phase-timeline-item phase-timeline-item--${state}${
+                    isSelected ? ' phase-timeline-item--selected' : ''
+                  }`}
+                  role="listitem"
+                  aria-current={state === 'active' ? 'step' : undefined}
+                  aria-pressed={isSelected}
+                  onClick={() => {
+                    setSelectedPhaseName(phase.name);
+                    setUserPickedPhase(true);
+                  }}
+                >
+                  <div className="phase-timeline-rail">
+                    <PhaseTimelineDot state={state} />
+                    {lineState && (
+                      <span
+                        className={`phase-timeline-line phase-timeline-line--${lineState}`}
+                        aria-hidden="true"
+                      />
+                    )}
+                  </div>
+                  <span className="phase-timeline-label">
+                    {phase.name}{' '}
+                    <span className="phase-timeline-timing">
+                      {phaseTimingText(state, persona.phase_times?.[phase.name])}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <PhaseActivityTerminal
+          phaseName={selectedPhase?.name ?? 'Phase'}
+          lines={terminalLines}
+          isLive={terminalLive}
+          emptyMessage={
+            selectedState === 'pending'
+              ? 'This phase has not started yet.'
+              : 'Waiting for activity...'
+          }
+        />
       </div>
 
       {isErrored && persona.blocked_reason && (
