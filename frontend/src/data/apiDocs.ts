@@ -252,7 +252,7 @@ export const apiSections: ApiSection[] = [
   "persona_environments": [
     { "persona_id": "uuid", "environment_ids": ["uuid"] }
   ],
-  "model": "string (default: nvidia/nemotron-3-ultra-550b-a55b)",
+  "model": "string (default: nvidia/nemotron-3-super-120b-a12b)",
   "config": "object (optional) — LLM provider overrides, timeouts, etc."
 }`,
         responseBody: 'RunResponse',

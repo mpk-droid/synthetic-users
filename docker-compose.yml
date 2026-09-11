@@ -29,7 +29,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       NVIDIA_NIM_BASE_URL: ${NVIDIA_NIM_BASE_URL:-https://integrate.api.nvidia.com/v1}
-      NVIDIA_NIM_MODEL: ${NVIDIA_NIM_MODEL:-nvidia/nemotron-3-ultra-550b-a55b}
+      NVIDIA_NIM_MODEL: ${NVIDIA_NIM_MODEL:-nvidia/nemotron-3-super-120b-a12b}
       GOOGLE_APPLICATION_CREDENTIALS: /gcp/application_default_credentials.json
       SU_AGENT_IMAGE: synthetic-users-app:latest
       SU_DOCKER_NETWORK: synthetic-users_default

@@ -386,6 +386,16 @@ class KubernetesOrchestrator(AgentOrchestrator):
                     )
                 ),
             ),
+            k8s_client.V1EnvVar(
+                name="NVIDIA_NIM_ENABLE_THINKING",
+                value_from=k8s_client.V1EnvVarSource(
+                    secret_key_ref=k8s_client.V1SecretKeySelector(
+                        name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
+                        key="NVIDIA_NIM_ENABLE_THINKING",
+                        optional=True,
+                    )
+                ),
+            ),
         ]
 
         for persona in personas:

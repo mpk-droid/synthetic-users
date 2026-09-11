@@ -59,7 +59,7 @@ curl -X POST http://localhost:8000/api/runs \
     "repo_url": "https://github.com/org/my-service.git",
     "persona_environments": [{"persona_id": "<persona-uuid>", "environment_ids": []}],
     "journey_id": "<journey-uuid>",
-    "model": "nvidia/nemotron-3-ultra-550b-a55b"
+    "model": "nvidia/nemotron-3-super-120b-a12b"
   }'
 
 # Check run detail

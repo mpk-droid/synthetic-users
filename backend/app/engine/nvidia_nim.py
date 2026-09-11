@@ -15,7 +15,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
-DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
+DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b"
 MAX_RETRIES = 5
 
 
@@ -154,7 +154,7 @@ class NvidiaNimMessages:
     base_url: str
     api_key: str
     default_model: str = DEFAULT_MODEL
-    enable_thinking: bool = True
+    enable_thinking: bool = False
     _client: httpx.AsyncClient = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -230,7 +230,7 @@ class NvidiaNimClient:
     api_key: str
     base_url: str = DEFAULT_BASE_URL
     default_model: str = DEFAULT_MODEL
-    enable_thinking: bool = True
+    enable_thinking: bool = False
     messages: NvidiaNimMessages = field(init=False)
 
     def __post_init__(self) -> None:

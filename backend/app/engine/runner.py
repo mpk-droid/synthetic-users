@@ -34,7 +34,7 @@ def _build_client(config: dict):
         enable_thinking = config.get("nvidia_nim_enable_thinking")
         if enable_thinking is None:
             enable_thinking = os.environ.get(
-                "NVIDIA_NIM_ENABLE_THINKING", "true"
+                "NVIDIA_NIM_ENABLE_THINKING", "false"
             ).lower() in ("1", "true", "yes")
         logger.info("Using NVIDIA NIM (%s, model=%s)", base_url, default_model)
         return NvidiaNimClient(

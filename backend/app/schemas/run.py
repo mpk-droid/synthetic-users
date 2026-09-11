@@ -16,7 +16,7 @@ class RunCreate(BaseModel):
     repo_url: str
     persona_environments: list[PersonaEnvironmentSpec]
     journey_id: uuid.UUID
-    model: str = "nvidia/nemotron-3-ultra-550b-a55b"
+    model: str = "nvidia/nemotron-3-super-120b-a12b"
     config: dict = Field(default_factory=dict)
 
 
