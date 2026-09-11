@@ -882,6 +882,10 @@ h1, h2, h3, h4 {
   margin-bottom: 8px;
 }
 
+.findings-filters {
+  margin-bottom: 12px;
+}
+
 .finding-detail-row td {
   padding: 0 !important;
 }

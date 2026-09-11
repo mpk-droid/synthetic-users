@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getRunDetail, getPersonas } from '../api/client';
@@ -30,6 +30,20 @@ function bucketSeverity(severity: string): (typeof FINDING_SEVERITIES)[number] {
     return 'needs_attention';
   }
   return 'nits';
+}
+
+const SEVERITY_ORDER: Record<(typeof FINDING_SEVERITIES)[number], number> = {
+  critical: 0,
+  needs_attention: 1,
+  nits: 2,
+};
+
+function compareFindings(a: FindingResponse, b: FindingResponse): number {
+  const bySeverity =
+    SEVERITY_ORDER[bucketSeverity(a.severity)] -
+    SEVERITY_ORDER[bucketSeverity(b.severity)];
+  if (bySeverity !== 0) return bySeverity;
+  return a.title.localeCompare(b.title);
 }
 
 function phaseState(
@@ -450,6 +464,16 @@ export default function RunDetail() {
 
   const [activePersonaIdx, setActivePersonaIdx] = useState(0);
   const [expandedFindings, setExpandedFindings] = useState<Set<string>>(new Set());
+  const [severityFilter, setSeverityFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [phaseFilter, setPhaseFilter] = useState('');
+
+  useEffect(() => {
+    setSeverityFilter('');
+    setCategoryFilter('');
+    setPhaseFilter('');
+  }, [activePersonaIdx]);
+
   const toggleFinding = (findingId: string) => {
     setExpandedFindings((prev) => {
       const next = new Set(prev);
@@ -472,6 +496,18 @@ export default function RunDetail() {
     activePersona?.status === 'running' || activePersona?.status === 'pending';
 
   const personaFindings = activePersona?.findings ?? [];
+  const categoryOptions = [...new Set(personaFindings.map((f) => f.category))].sort();
+  const phaseOptions = [...new Set(personaFindings.map((f) => f.phase))].sort();
+  const filteredFindings = [...personaFindings]
+    .filter((f) => {
+      if (severityFilter && bucketSeverity(f.severity) !== severityFilter) {
+        return false;
+      }
+      if (categoryFilter && f.category !== categoryFilter) return false;
+      if (phaseFilter && f.phase !== phaseFilter) return false;
+      return true;
+    })
+    .sort(compareFindings);
   const severityCounts = personaFindings.reduce(
     (acc, f) => {
       const key = bucketSeverity(f.severity);
@@ -567,77 +603,136 @@ export default function RunDetail() {
               </div>
 
               <div className="findings-section">
-                <h4>Findings ({activePersona.findings.length})</h4>
-                {activePersona.findings.length === 0 ? (
+                <h4>
+                  Findings ({filteredFindings.length}
+                  {filteredFindings.length !== personaFindings.length
+                    ? ` of ${personaFindings.length}`
+                    : ''}
+                  )
+                </h4>
+                {personaFindings.length === 0 ? (
                   <p className="empty-state">
                     {findingsPending
                       ? 'Findings will appear here when the run completes.'
                       : 'No findings for this persona.'}
                   </p>
                 ) : (
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Severity</th>
-                        <th>Category</th>
-                        <th>Title</th>
-                        <th>Phase</th>
-                        <th>Verified</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activePersona.findings.map((f: FindingResponse) => (
-                        <>
-                          <tr
-                            key={f.id}
-                            className="data-table__row--clickable"
-                            onClick={() => toggleFinding(f.id)}
-                          >
-                            <td>
-                              <SeverityBadge severity={f.severity} />
-                            </td>
-                            <td>{f.category}</td>
-                            <td>{f.title}</td>
-                            <td>{f.phase}</td>
-                            <td>
-                              <span className={`badge ${f.verified ? 'badge--green' : 'badge--gray'}`}>
-                                {f.verified ? 'Yes' : 'No'}
-                              </span>
-                            </td>
+                  <>
+                    <div className="findings-filters form-row">
+                      <div className="form-group">
+                        <label htmlFor="run-severity-filter">Severity</label>
+                        <select
+                          id="run-severity-filter"
+                          value={severityFilter}
+                          onChange={(e) => setSeverityFilter(e.target.value)}
+                        >
+                          <option value="">All</option>
+                          <option value="critical">Critical</option>
+                          <option value="needs_attention">Needs attention</option>
+                          <option value="nits">Nits</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="run-category-filter">Category</label>
+                        <select
+                          id="run-category-filter"
+                          value={categoryFilter}
+                          onChange={(e) => setCategoryFilter(e.target.value)}
+                        >
+                          <option value="">All</option>
+                          {categoryOptions.map((category) => (
+                            <option key={category} value={category}>
+                              {category}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="run-phase-filter">Phase</label>
+                        <select
+                          id="run-phase-filter"
+                          value={phaseFilter}
+                          onChange={(e) => setPhaseFilter(e.target.value)}
+                        >
+                          <option value="">All</option>
+                          {phaseOptions.map((phase) => (
+                            <option key={phase} value={phase}>
+                              {phase}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    {filteredFindings.length === 0 ? (
+                      <p className="empty-state">No findings match the current filters.</p>
+                    ) : (
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Severity</th>
+                            <th>Category</th>
+                            <th>Title</th>
+                            <th>Phase</th>
+                            <th>Verified</th>
                           </tr>
-                          {expandedFindings.has(f.id) && (
-                            <tr key={`${f.id}-detail`} className="finding-detail-row">
-                              <td colSpan={5}>
-                                <div className="finding-detail">
-                                  <div className="finding-description">
-                                    <strong>Description</strong>
-                                    <p>{f.description}</p>
-                                  </div>
-                                  <div className="finding-evidence">
-                                    <strong>Evidence</strong>
-                                    <blockquote>{f.evidence}</blockquote>
-                                  </div>
-                                  {f.suggestion && (
-                                    <div className="finding-suggestion">
-                                      <strong>Suggestion</strong>
-                                      <p>{f.suggestion}</p>
+                        </thead>
+                        <tbody>
+                          {filteredFindings.map((f: FindingResponse) => (
+                            <Fragment key={f.id}>
+                              <tr
+                                className="data-table__row--clickable"
+                                onClick={() => toggleFinding(f.id)}
+                              >
+                                <td>
+                                  <SeverityBadge severity={f.severity} />
+                                </td>
+                                <td>{f.category}</td>
+                                <td>{f.title}</td>
+                                <td>{f.phase}</td>
+                                <td>
+                                  <span
+                                    className={`badge ${f.verified ? 'badge--green' : 'badge--gray'}`}
+                                  >
+                                    {f.verified ? 'Yes' : 'No'}
+                                  </span>
+                                </td>
+                              </tr>
+                              {expandedFindings.has(f.id) && (
+                                <tr className="finding-detail-row">
+                                  <td colSpan={5}>
+                                    <div className="finding-detail">
+                                      <div className="finding-description">
+                                        <strong>Description</strong>
+                                        <p>{f.description}</p>
+                                      </div>
+                                      <div className="finding-evidence">
+                                        <strong>Evidence</strong>
+                                        <blockquote>{f.evidence}</blockquote>
+                                      </div>
+                                      {f.suggestion && (
+                                        <div className="finding-suggestion">
+                                          <strong>Suggestion</strong>
+                                          <p>{f.suggestion}</p>
+                                        </div>
+                                      )}
+                                      {f.file_path && (
+                                        <div className="finding-file">
+                                          <strong>File:</strong>{' '}
+                                          <code>{f.file_path}</code>
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
-                                  {f.file_path && (
-                                    <div className="finding-file">
-                                      <strong>File:</strong>{' '}
-                                      <code>{f.file_path}</code>
-                                    </div>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </>
-                      ))}
-                    </tbody>
-                  </table>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </>
                 )}
+              </div>
               </div>
             </div>
           )}
