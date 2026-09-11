@@ -23,6 +23,13 @@ function isPhaseErrored(phase: JourneyPhaseRef, persona: RunPersonaDetail): bool
 
 const FINDING_SEVERITIES = ['critical', 'needs_attention', 'nits'] as const;
 
+const SEVERITY_LABELS: Record<(typeof FINDING_SEVERITIES)[number], string> = {
+  critical: 'Critical',
+  needs_attention: 'Needs attention',
+  nits: 'Nits',
+};
+
+
 function bucketSeverity(severity: string): (typeof FINDING_SEVERITIES)[number] {
   const key = severity.toLowerCase().replace(/-/g, '_').replace(/ /g, '_');
   if (key === 'critical') return 'critical';
@@ -171,10 +178,13 @@ function activityLogLine(entry: RunActivityEntry): string | null {
   return `${time}  ${entry.message}`;
 }
 
-function phaseTimingText(
-  state: PhaseTimelineState,
-  times: PhaseTimes | undefined,
-): string {
+function PhaseTiming({
+  state,
+  times,
+}: {
+  state: PhaseTimelineState;
+  times: PhaseTimes | undefined;
+}) {
   const dash = '\u2014';
   const start = formatPhaseTime(times?.started_at);
   const end = state === 'active' ? dash : formatPhaseTime(times?.completed_at);
@@ -182,10 +192,18 @@ function phaseTimingText(
     state === 'pending'
       ? dash
       : formatElapsed(times?.started_at, times?.completed_at, state === 'active');
-  if (state === 'pending') {
-    return `(start: ${dash}, end: ${dash}, elapsed: ${dash})`;
-  }
-  return `(start: ${start}, end: ${end}, elapsed: ${elapsed})`;
+
+  return (
+    <span className="phase-timeline-timing">
+      (
+      <span className="phase-timeline-timing__elapsed">elapsed: {elapsed}</span>
+      {', start: '}
+      {start}
+      {', end: '}
+      {end}
+      )
+    </span>
+  );
 }
 
 function PhaseTimelineDot({ state }: { state: PhaseTimelineState }) {
@@ -225,16 +243,49 @@ function PhaseTimelineDot({ state }: { state: PhaseTimelineState }) {
 }
 
 
+function PhaseActivityStatus({
+  isLive,
+  phaseState,
+}: {
+  isLive: boolean;
+  phaseState: PhaseTimelineState;
+}) {
+  if (isLive) {
+    return (
+      <span className="phase-activity-terminal__status phase-activity-terminal__status--tailing">
+        tailing
+      </span>
+    );
+  }
+  if (phaseState === 'completed') {
+    return (
+      <span className="phase-activity-terminal__status phase-activity-terminal__status--completed">
+        completed
+      </span>
+    );
+  }
+  if (phaseState === 'error') {
+    return (
+      <span className="phase-activity-terminal__status phase-activity-terminal__status--interrupted">
+        interrupted
+      </span>
+    );
+  }
+  return null;
+}
+
 function PhaseActivityTerminal({
   phaseName,
   lines,
   isLive,
+  phaseState,
   emptyMessage,
   height,
 }: {
   phaseName: string;
   lines: string[];
   isLive: boolean;
+  phaseState: PhaseTimelineState;
   emptyMessage: string;
   height?: number;
 }) {
@@ -278,7 +329,7 @@ function PhaseActivityTerminal({
     >
       <div className="phase-activity-terminal__chrome">
         <span className="phase-activity-terminal__title">Activity</span>
-        {isLive && <span className="phase-activity-terminal__live">tailing</span>}
+        <PhaseActivityStatus isLive={isLive} phaseState={phaseState} />
       </div>
       <div
         className="phase-activity-terminal__body"
@@ -413,9 +464,10 @@ function PhaseProgress({
                   </div>
                   <span className="phase-timeline-content">
                     <span className="phase-timeline-name">{phase.name}</span>
-                    <span className="phase-timeline-timing">
-                      {phaseTimingText(state, persona.phase_times?.[phase.name])}
-                    </span>
+                    <PhaseTiming
+                      state={state}
+                      times={persona.phase_times?.[phase.name]}
+                    />
                   </span>
                 </button>
               );
@@ -427,6 +479,7 @@ function PhaseProgress({
           phaseName={selectedPhase?.name ?? 'Phase'}
           lines={terminalLines}
           isLive={terminalLive}
+          phaseState={selectedState}
           height={panelHeight}
           emptyMessage={
             selectedState === 'pending'
@@ -588,28 +641,29 @@ export default function RunDetail() {
                 </div>
               )}
 
-              <div className="findings-summary-section">
-                <h4>Findings Summary</h4>
-                <div className="summary-grid">
-                  {FINDING_SEVERITIES.map((sev) => (
-                    <div key={sev} className="summary-card">
-                      <span className={`summary-count${findingsPending ? ' summary-count--pending' : ''}`}>
-                        {findingsPending ? 'pending' : severityCounts[sev] || 0}
-                      </span>
-                      <SeverityBadge severity={sev} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               <div className="findings-section">
-                <h4>
-                  Findings ({filteredFindings.length}
-                  {filteredFindings.length !== personaFindings.length
-                    ? ` of ${personaFindings.length}`
-                    : ''}
-                  )
-                </h4>
+                <div className="findings-section__header">
+                  <h4 className="findings-section__title">
+                    Findings
+                    {filteredFindings.length !== personaFindings.length && (
+                      <span className="findings-section__filtered">
+                        ({filteredFindings.length} of {personaFindings.length})
+                      </span>
+                    )}
+                  </h4>
+                  <div className="findings-section__stats">
+                    {FINDING_SEVERITIES.map((sev) => (
+                      <div key={sev} className="findings-stat">
+                        <span className="data-table__th-label">{SEVERITY_LABELS[sev]}</span>
+                        <span
+                          className={`findings-stat__count${findingsPending ? ' findings-stat__count--pending' : ''}`}
+                        >
+                          {findingsPending ? 'pending' : severityCounts[sev] || 0}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 {personaFindings.length === 0 ? (
                   <p className="empty-state">
                     {findingsPending
@@ -617,67 +671,74 @@ export default function RunDetail() {
                       : 'No findings for this persona.'}
                   </p>
                 ) : (
-                  <>
-                    <div className="findings-filters form-row">
-                      <div className="form-group">
-                        <label htmlFor="run-severity-filter">Severity</label>
-                        <select
-                          id="run-severity-filter"
-                          value={severityFilter}
-                          onChange={(e) => setSeverityFilter(e.target.value)}
-                        >
-                          <option value="">All</option>
-                          <option value="critical">Critical</option>
-                          <option value="needs_attention">Needs attention</option>
-                          <option value="nits">Nits</option>
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label htmlFor="run-category-filter">Category</label>
-                        <select
-                          id="run-category-filter"
-                          value={categoryFilter}
-                          onChange={(e) => setCategoryFilter(e.target.value)}
-                        >
-                          <option value="">All</option>
-                          {categoryOptions.map((category) => (
-                            <option key={category} value={category}>
-                              {category}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label htmlFor="run-phase-filter">Phase</label>
-                        <select
-                          id="run-phase-filter"
-                          value={phaseFilter}
-                          onChange={(e) => setPhaseFilter(e.target.value)}
-                        >
-                          <option value="">All</option>
-                          {phaseOptions.map((phase) => (
-                            <option key={phase} value={phase}>
-                              {phase}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    {filteredFindings.length === 0 ? (
-                      <p className="empty-state">No findings match the current filters.</p>
-                    ) : (
                       <table className="data-table">
                         <thead>
                           <tr>
-                            <th>Severity</th>
-                            <th>Category</th>
+                            <th>
+                              <label className="data-table__th-filter">
+                                <span className="data-table__th-label">Severity</span>
+                                <select
+                                  aria-label="Filter by severity"
+                                  value={severityFilter}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => setSeverityFilter(e.target.value)}
+                                >
+                                  <option value="">All</option>
+                                  <option value="critical">Critical</option>
+                                  <option value="needs_attention">Needs attention</option>
+                                  <option value="nits">Nits</option>
+                                </select>
+                              </label>
+                            </th>
+                            <th>
+                              <label className="data-table__th-filter">
+                                <span className="data-table__th-label">Category</span>
+                                <select
+                                  aria-label="Filter by category"
+                                  value={categoryFilter}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => setCategoryFilter(e.target.value)}
+                                >
+                                  <option value="">All</option>
+                                  {categoryOptions.map((category) => (
+                                    <option key={category} value={category}>
+                                      {category}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </th>
                             <th>Title</th>
-                            <th>Phase</th>
+                            <th>
+                              <label className="data-table__th-filter">
+                                <span className="data-table__th-label">Phase</span>
+                                <select
+                                  aria-label="Filter by phase"
+                                  value={phaseFilter}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => setPhaseFilter(e.target.value)}
+                                >
+                                  <option value="">All</option>
+                                  {phaseOptions.map((phase) => (
+                                    <option key={phase} value={phase}>
+                                      {phase}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </th>
                             <th>Verified</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredFindings.map((f: FindingResponse) => (
+                          {filteredFindings.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="data-table__empty">
+                                No findings match the current filters.
+                              </td>
+                            </tr>
+                          ) : (
+                          filteredFindings.map((f: FindingResponse) => (
                             <Fragment key={f.id}>
                               <tr
                                 className="data-table__row--clickable"
@@ -726,11 +787,10 @@ export default function RunDetail() {
                                 </tr>
                               )}
                             </Fragment>
-                          ))}
+                          ))
+                          )}
                         </tbody>
                       </table>
-                    )}
-                  </>
                 )}
               </div>
             </div>
