@@ -17,24 +17,6 @@ MAX_ITERATIONS = 50
 
 
 def _build_client(config: dict):
-    models_corp_key = config.get("models_corp_api_key") or os.environ.get(
-        "MODELS_CORP_API_KEY"
-    )
-    models_corp_url = config.get("models_corp_url") or os.environ.get(
-        "MODELS_CORP_URL",
-        "https://claude--apicast-production.apps.int.stc.ai.prod.us-east-1.aws.paas.redhat.com",
-    )
-
-    if models_corp_key:
-        from app.engine.models_corp import ModelsCorpClient
-
-        logger.info("Using Models.corp (%s)", models_corp_url)
-        return ModelsCorpClient(
-            base_url=models_corp_url,
-            api_key=models_corp_key,
-            verify_ssl=False,
-        )
-
     nvidia_api_key = config.get("nvidia_api_key") or os.environ.get("NVIDIA_API_KEY")
     if nvidia_api_key:
         from app.engine.nvidia_nim import (
@@ -60,6 +42,24 @@ def _build_client(config: dict):
             base_url=base_url,
             default_model=default_model,
             enable_thinking=enable_thinking,
+        )
+
+    models_corp_key = config.get("models_corp_api_key") or os.environ.get(
+        "MODELS_CORP_API_KEY"
+    )
+    models_corp_url = config.get("models_corp_url") or os.environ.get(
+        "MODELS_CORP_URL",
+        "https://claude--apicast-production.apps.int.stc.ai.prod.us-east-1.aws.paas.redhat.com",
+    )
+
+    if models_corp_key:
+        from app.engine.models_corp import ModelsCorpClient
+
+        logger.info("Using Models.corp (%s)", models_corp_url)
+        return ModelsCorpClient(
+            base_url=models_corp_url,
+            api_key=models_corp_key,
+            verify_ssl=False,
         )
 
     vertex_project = config.get("vertex_project_id") or os.environ.get(
@@ -308,10 +308,15 @@ async def finalize_run_if_complete(run_id: str) -> bool:
         if not run or run.status != RunStatus.running:
             return False
 
-        run.status = RunStatus.completed
         run.completed_at = datetime.now(timezone.utc)
         run.score = TrafficLight(score)
         run.score_rationale = rationale
+        if any_blocked:
+            run.status = RunStatus.failed
+            run.error = rationale
+        else:
+            run.status = RunStatus.completed
+            run.error = None
         await db.commit()
 
     if repo_url:

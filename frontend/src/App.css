@@ -1080,8 +1080,12 @@ h1, h2, h3, h4 {
 }
 
 .phase-timeline-dot--error {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 2px solid var(--color-red);
   background: var(--color-red);
+  color: var(--color-white);
 }
 
 .phase-timeline-line {

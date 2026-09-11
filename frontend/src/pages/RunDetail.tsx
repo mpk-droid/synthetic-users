@@ -9,17 +9,21 @@ import SeverityBadge from '../components/SeverityBadge';
 
 type PhaseTimelineState = 'completed' | 'active' | 'pending' | 'error';
 
+function isPhaseErrored(phase: JourneyPhaseRef, persona: RunPersonaDetail): boolean {
+  if (persona.blocked_phase === phase.name) return true;
+  const summary = persona.phase_summaries[phase.name];
+  return typeof summary === 'string' && summary.startsWith('BLOCKED:');
+}
+
 function phaseState(
   phase: JourneyPhaseRef,
   persona: RunPersonaDetail,
 ): PhaseTimelineState {
-  const { current_phase: currentPhase, phase_summaries: phaseSummaries, status, blocked_phase } = persona;
+  const { current_phase: currentPhase, phase_summaries: phaseSummaries, status } = persona;
+
+  if (isPhaseErrored(phase, persona)) return 'error';
 
   if (phase.name in phaseSummaries) return 'completed';
-
-  if (blocked_phase === phase.name || (status === 'blocked' && currentPhase === phase.name)) {
-    return 'error';
-  }
 
   if (currentPhase === phase.name) {
     return status === 'running' ? 'active' : status === 'blocked' ? 'error' : 'pending';
@@ -40,15 +44,20 @@ function connectorState(
 
 function currentPhaseNumber(
   phases: JourneyPhaseRef[],
-  currentPhase: string | null,
-  phaseSummaries: Record<string, string>,
+  persona: RunPersonaDetail,
 ): number {
   if (phases.length === 0) return 0;
-  if (currentPhase) {
-    const idx = phases.findIndex((p) => p.name === currentPhase);
+  if (persona.blocked_phase) {
+    const blockedIdx = phases.findIndex((p) => p.name === persona.blocked_phase);
+    if (blockedIdx >= 0) return blockedIdx + 1;
+  }
+  if (persona.current_phase) {
+    const idx = phases.findIndex((p) => p.name === persona.current_phase);
     if (idx >= 0) return idx + 1;
   }
-  const completed = phases.filter((p) => p.name in phaseSummaries).length;
+  const completed = phases.filter(
+    (p) => p.name in persona.phase_summaries && !isPhaseErrored(p, persona),
+  ).length;
   if (completed >= phases.length) return phases.length;
   return Math.max(completed, 1);
 }
@@ -92,7 +101,18 @@ function PhaseTimelineDot({ state }: { state: PhaseTimelineState }) {
     return <span className="phase-timeline-dot phase-timeline-dot--active" aria-hidden="true" />;
   }
   if (state === 'error') {
-    return <span className="phase-timeline-dot phase-timeline-dot--error" aria-hidden="true" />;
+    return (
+      <span className="phase-timeline-dot phase-timeline-dot--error" aria-hidden="true">
+        <svg viewBox="0 0 16 16" width="12" height="12" fill="none">
+          <path
+            d="M4.5 4.5l7 7M11.5 4.5l-7 7"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </span>
+    );
   }
   return <span className="phase-timeline-dot phase-timeline-dot--pending" aria-hidden="true" />;
 }
@@ -107,11 +127,7 @@ function PhaseProgress({
   if (phases.length === 0) return null;
 
   const states = phases.map((phase) => phaseState(phase, persona));
-  const phaseNum = currentPhaseNumber(
-    phases,
-    persona.current_phase,
-    persona.phase_summaries,
-  );
+  const phaseNum = currentPhaseNumber(phases, persona);
   const isLive = persona.status === 'running';
   const isErrored = persona.status === 'blocked';
 
