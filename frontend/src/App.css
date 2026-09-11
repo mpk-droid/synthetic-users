@@ -1055,7 +1055,6 @@ h1, h2, h3, h4 {
   height: 1.3rem;
   border-radius: 50%;
   box-sizing: border-box;
-  transform-origin: center;
 }
 
 .phase-timeline-dot--pending {
@@ -1075,8 +1074,6 @@ h1, h2, h3, h4 {
 .phase-timeline-dot--active {
   border: 2px solid var(--color-green);
   background: var(--color-green);
-  animation: phase-alive-pulse 2.8s ease-in-out infinite;
-  transform-origin: center;
 }
 
 .phase-timeline-dot--error {
@@ -1131,18 +1128,7 @@ h1, h2, h3, h4 {
   color: var(--color-gray-600);
 }
 
-@keyframes phase-alive-pulse {
-  0%, 100% {
-    opacity: 0.85;
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-green) 45%, transparent);
-    transform: scale(0.68);
-  }
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-green) 0%, transparent);
-    transform: scale(1.22);
-  }
-}
+
 
 
 .tab-phase-hint {
@@ -1248,7 +1234,6 @@ h1, h2, h3, h4 {
   height: 0.7rem;
   border-radius: 50%;
   flex-shrink: 0;
-  transform-origin: center;
 }
 
 .persona-picker-dot--idle {
@@ -1261,8 +1246,6 @@ h1, h2, h3, h4 {
 
 .persona-picker-dot--live {
   background: var(--color-green);
-  animation: phase-alive-pulse 2.8s ease-in-out infinite;
-  transform-origin: center;
 }
 
 .persona-picker-dot--error {
