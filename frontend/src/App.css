@@ -773,6 +773,10 @@ h1, h2, h3, h4 {
   margin-bottom: 8px;
 }
 
+.run-rationale--error {
+  color: var(--color-red);
+}
+
 .run-meta {
   display: flex;
   gap: 24px;
@@ -918,8 +922,7 @@ h1, h2, h3, h4 {
 /* Findings */
 .findings-section__header {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  align-items: center;
   gap: 16px;
   flex-wrap: wrap;
   margin-bottom: 8px;
@@ -930,7 +933,7 @@ h1, h2, h3, h4 {
   margin: 0;
 }
 
-.findings-section__filtered {
+.findings-section__count {
   margin-left: 6px;
   font-size: 0.85rem;
   font-weight: 500;
@@ -939,21 +942,22 @@ h1, h2, h3, h4 {
 
 .findings-section__stats {
   display: flex;
-  gap: 20px;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .findings-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .findings-stat__count {
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  color: var(--color-gray-900);
-  line-height: 1.2;
+  color: var(--color-gray-800);
+  line-height: 1;
 }
 
 .findings-stat__count--pending {

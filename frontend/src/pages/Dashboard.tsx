@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { deleteRun, getRuns } from '../api/client';
 import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
+import { formatElapsed, formatRunDateTime } from '../utils/datetime';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -60,7 +61,8 @@ export default function Dashboard() {
               <th>Score</th>
               <th>Status</th>
               <th>Personas</th>
-              <th>Date</th>
+              <th>Started at</th>
+              <th>Elapsed</th>
               <th aria-label="Actions" />
             </tr>
           </thead>
@@ -79,7 +81,14 @@ export default function Dashboard() {
                   <StatusBadge status={run.status} />
                 </td>
                 <td>{run.persona_environments.length}</td>
-                <td>{new Date(run.created_at).toLocaleDateString()}</td>
+                <td>{formatRunDateTime(run.started_at ?? run.created_at)}</td>
+                <td>
+                  {formatElapsed(
+                    run.started_at,
+                    run.completed_at,
+                    run.status === 'pending' || run.status === 'running',
+                  )}
+                </td>
                 <td className="data-table__actions">
                   <button
                     type="button"

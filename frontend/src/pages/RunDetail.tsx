@@ -12,6 +12,7 @@ import type {
 import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
 import SeverityBadge from '../components/SeverityBadge';
+import { formatElapsed } from '../utils/datetime';
 
 type PhaseTimelineState = 'completed' | 'active' | 'pending' | 'error';
 
@@ -22,13 +23,6 @@ function isPhaseErrored(phase: JourneyPhaseRef, persona: RunPersonaDetail): bool
 }
 
 const FINDING_SEVERITIES = ['critical', 'needs_attention', 'nits'] as const;
-
-const SEVERITY_LABELS: Record<(typeof FINDING_SEVERITIES)[number], string> = {
-  critical: 'Critical',
-  needs_attention: 'Needs attention',
-  nits: 'Nits',
-};
-
 
 function bucketSeverity(severity: string): (typeof FINDING_SEVERITIES)[number] {
   const key = severity.toLowerCase().replace(/-/g, '_').replace(/ /g, '_');
@@ -107,26 +101,6 @@ function formatPhaseTime(iso: string | null | undefined): string {
     minute: '2-digit',
   });
 }
-
-function formatElapsed(
-  startedAt: string | null | undefined,
-  completedAt: string | null | undefined,
-  isActive: boolean,
-): string {
-  const dash = '\u2014';
-  if (!startedAt) return dash;
-  const start = new Date(startedAt).getTime();
-  const end = completedAt
-    ? new Date(completedAt).getTime()
-    : isActive
-      ? Date.now()
-      : Number.NaN;
-  if (Number.isNaN(end)) return dash;
-  const minutes = Math.max(0, Math.round((end - start) / 60_000));
-  if (minutes < 1) return '<1m';
-  return `${minutes}m`;
-}
-
 
 function defaultSelectedPhase(
   phases: JourneyPhaseRef[],
@@ -577,15 +551,20 @@ export default function RunDetail() {
           <ScoreBadge score={run.score} size="large" />
           <StatusBadge status={run.status} />
         </div>
-        {run.score_rationale && (
-          <p className="run-rationale">{run.score_rationale}</p>
-        )}
-        {run.error && (
-          <p className="error">{run.error}</p>
+        {(run.error || run.score_rationale) && (
+          <p className={`run-rationale${run.error ? ' run-rationale--error' : ''}`}>
+            {run.error ?? run.score_rationale}
+          </p>
         )}
         <div className="run-meta">
           {run.started_at && (
-            <span>Started: {new Date(run.started_at).toLocaleString()}</span>
+            <span>Started at: {new Date(run.started_at).toLocaleString()}</span>
+          )}
+          {run.started_at && (
+            <span>
+              Elapsed:{' '}
+              {formatElapsed(run.started_at, run.completed_at, isRunActive)}
+            </span>
           )}
           {run.completed_at && (
             <span>Completed: {new Date(run.completed_at).toLocaleString()}</span>
@@ -645,16 +624,18 @@ export default function RunDetail() {
                 <div className="findings-section__header">
                   <h4 className="findings-section__title">
                     Findings
-                    {filteredFindings.length !== personaFindings.length && (
-                      <span className="findings-section__filtered">
-                        ({filteredFindings.length} of {personaFindings.length})
-                      </span>
-                    )}
+                    <span className="findings-section__count">
+                      (
+                      {filteredFindings.length !== personaFindings.length
+                        ? `${filteredFindings.length} of ${personaFindings.length}`
+                        : personaFindings.length}
+                      )
+                    </span>
                   </h4>
                   <div className="findings-section__stats">
                     {FINDING_SEVERITIES.map((sev) => (
                       <div key={sev} className="findings-stat">
-                        <span className="data-table__th-label">{SEVERITY_LABELS[sev]}</span>
+                        <SeverityBadge severity={sev} />
                         <span
                           className={`findings-stat__count${findingsPending ? ' findings-stat__count--pending' : ''}`}
                         >
