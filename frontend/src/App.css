@@ -1150,8 +1150,13 @@ h1, h2, h3, h4 {
 }
 
 .phase-timeline-item--selected {
-  background: var(--color-gray-50);
-  border-color: var(--color-gray-200);
+  background: var(--color-gray-100);
+  border-color: var(--color-gray-300);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.phase-timeline-item--selected:hover {
+  background: var(--color-gray-100);
 }
 
 .phase-activity-terminal {
@@ -1229,7 +1234,7 @@ h1, h2, h3, h4 {
   line-height: 1.55;
   color: #d1d5db;
   scrollbar-width: thin;
-  scrollbar-color: #374151 #0b1220;
+  scrollbar-color: #5a6475 #141c2b;
 }
 
 .phase-activity-terminal__body::-webkit-scrollbar {
@@ -1237,17 +1242,18 @@ h1, h2, h3, h4 {
 }
 
 .phase-activity-terminal__body::-webkit-scrollbar-track {
-  background: #0b1220;
+  background: #141c2b;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.05);
 }
 
 .phase-activity-terminal__body::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: #5a6475;
   border-radius: 5px;
-  border: 2px solid #0b1220;
+  border: 2px solid #141c2b;
 }
 
 .phase-activity-terminal__body::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: #6d7788;
 }
 
 .phase-activity-terminal__phase {
