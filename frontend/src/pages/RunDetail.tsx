@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getRunDetail, getPersonas } from '../api/client';
@@ -188,11 +188,13 @@ function PhaseActivityTerminal({
   lines,
   isLive,
   emptyMessage,
+  height,
 }: {
   phaseName: string;
   lines: string[];
   isLive: boolean;
   emptyMessage: string;
+  height?: number;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
@@ -227,7 +229,11 @@ function PhaseActivityTerminal({
   };
 
   return (
-    <div className="phase-activity-terminal" aria-label={`Activity log for ${phaseName}`}>
+    <div
+      className="phase-activity-terminal"
+      style={height ? { height } : undefined}
+      aria-label={`Activity log for ${phaseName}`}
+    >
       <div className="phase-activity-terminal__chrome">
         <span className="phase-activity-terminal__title">Activity</span>
         {isLive && <span className="phase-activity-terminal__live">tailing</span>}
@@ -263,6 +269,27 @@ function PhaseProgress({
     defaultSelectedPhase(phases, persona),
   );
   const [userPickedPhase, setUserPickedPhase] = useState(false);
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const [timelineHeight, setTimelineHeight] = useState<number>();
+
+  useLayoutEffect(() => {
+    const el = timelineRef.current;
+    if (!el) return;
+
+    const syncHeight = () => {
+      setTimelineHeight(el.getBoundingClientRect().height);
+    };
+
+    syncHeight();
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(el);
+    window.addEventListener('resize', syncHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', syncHeight);
+    };
+  }, [phases.length, persona.id, persona.status, persona.current_phase]);
 
   useEffect(() => {
     setUserPickedPhase(false);
@@ -309,7 +336,12 @@ function PhaseProgress({
 
       <div className="run-progress-split">
         <div className="run-progress-timeline">
-          <div className="phase-timeline" role="list" aria-label="Journey phases">
+          <div
+            className="phase-timeline"
+            ref={timelineRef}
+            role="list"
+            aria-label="Journey phases"
+          >
             {phases.map((phase, index) => {
               const state = states[index];
               const lineState =
@@ -358,6 +390,7 @@ function PhaseProgress({
           phaseName={selectedPhase?.name ?? 'Phase'}
           lines={terminalLines}
           isLive={terminalLive}
+          height={timelineHeight}
           emptyMessage={
             selectedState === 'pending'
               ? 'This phase has not started yet.'

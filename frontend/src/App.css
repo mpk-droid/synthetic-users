@@ -1035,7 +1035,7 @@ h1, h2, h3, h4 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1rem;
-  align-items: stretch;
+  align-items: flex-start;
 }
 
 .run-progress-timeline {
@@ -1076,7 +1076,7 @@ h1, h2, h3, h4 {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  height: 100%;
+  max-height: 100%;
   border: 1px solid var(--color-gray-800);
   border-radius: var(--border-radius-lg);
   overflow: hidden;
