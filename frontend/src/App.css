@@ -59,7 +59,7 @@
 }
 
 html {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 body {
@@ -737,8 +737,8 @@ h1, h2, h3, h4 {
 .run-meta {
   display: flex;
   gap: 24px;
-  font-size: 0.8rem;
-  color: var(--color-gray-500);
+  font-size: 0.85rem;
+  color: var(--color-gray-600);
 }
 
 /* Summary grid */
@@ -949,8 +949,8 @@ h1, h2, h3, h4 {
 }
 
 .empty-state {
-  color: var(--color-gray-400);
-  font-size: 0.93rem;
+  color: var(--color-gray-600);
+  font-size: 1rem;
   padding: 40px 0;
   text-align: center;
 }
@@ -1107,12 +1107,12 @@ h1, h2, h3, h4 {
 .phase-timeline-label {
   padding-top: 0.05rem;
   font-size: 0.95rem;
-  line-height: 1.35;
-  color: var(--color-gray-400);
+  line-height: 1.4;
+  color: var(--color-gray-600);
 }
 
 .phase-timeline-item--completed .phase-timeline-label {
-  color: var(--color-gray-600);
+  color: var(--color-gray-700);
 }
 
 .phase-timeline-item--active .phase-timeline-label {
@@ -1126,7 +1126,7 @@ h1, h2, h3, h4 {
 }
 
 .phase-timeline-item--pending .phase-timeline-label {
-  color: var(--color-gray-400);
+  color: var(--color-gray-600);
 }
 
 @keyframes phase-alive-pulse {
@@ -1224,7 +1224,7 @@ h1, h2, h3, h4 {
   font: inherit;
   font-size: 1.05rem;
   font-weight: 500;
-  color: var(--color-gray-400);
+  color: var(--color-gray-600);
   transition: color 0.15s ease;
 }
 
@@ -1249,7 +1249,7 @@ h1, h2, h3, h4 {
 }
 
 .persona-picker-dot--idle {
-  background: var(--color-gray-300);
+  background: var(--color-gray-400);
 }
 
 .persona-picker-dot--done {
@@ -1277,12 +1277,16 @@ h1, h2, h3, h4 {
 
 .phase-timeline-timing {
   font-weight: 400;
-  font-size: 0.8rem;
-  color: var(--color-gray-500);
+  font-size: 0.85rem;
+  color: var(--color-gray-600);
 }
 
 .phase-timeline-item--active .phase-timeline-timing {
   color: var(--color-green);
+}
+
+.phase-timeline-item--pending .phase-timeline-timing {
+  color: var(--color-gray-500);
 }
 
 .phase-timeline-item--error .phase-timeline-timing {
@@ -1298,9 +1302,9 @@ h1, h2, h3, h4 {
 }
 
 .summary-count--pending {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: var(--color-gray-400);
+  color: var(--color-gray-600);
   text-transform: lowercase;
   letter-spacing: 0.02em;
 }
