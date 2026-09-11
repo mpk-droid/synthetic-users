@@ -733,7 +733,6 @@ export default function RunDetail() {
                   </>
                 )}
               </div>
-              </div>
             </div>
           )}
         </section>
