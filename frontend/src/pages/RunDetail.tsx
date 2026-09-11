@@ -195,19 +195,48 @@ function PhaseActivityTerminal({
   emptyMessage: string;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
+
+  const scrollToBottom = () => {
+    const el = bodyRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  };
 
   useEffect(() => {
-    if (!isLive || !bodyRef.current) return;
-    bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-  }, [lines, isLive, phaseName]);
+    stickToBottomRef.current = true;
+    requestAnimationFrame(scrollToBottom);
+  }, [phaseName]);
+
+  useEffect(() => {
+    if (isLive) {
+      stickToBottomRef.current = true;
+    }
+  }, [isLive]);
+
+  useEffect(() => {
+    if (!stickToBottomRef.current) return;
+    requestAnimationFrame(scrollToBottom);
+  }, [lines]);
+
+  const handleScroll = () => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distanceFromBottom < 48;
+  };
 
   return (
     <div className="phase-activity-terminal" aria-label={`Activity log for ${phaseName}`}>
       <div className="phase-activity-terminal__chrome">
         <span className="phase-activity-terminal__title">Activity</span>
-        {isLive && <span className="phase-activity-terminal__live">live</span>}
+        {isLive && <span className="phase-activity-terminal__live">tailing</span>}
       </div>
-      <div className="phase-activity-terminal__body" ref={bodyRef}>
+      <div
+        className="phase-activity-terminal__body"
+        ref={bodyRef}
+        onScroll={handleScroll}
+      >
         <div className="phase-activity-terminal__phase">{phaseName}:</div>
         {lines.length === 0 ? (
           <p className="phase-activity-terminal__empty">{emptyMessage}</p>
