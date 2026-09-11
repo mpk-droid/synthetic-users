@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import environments, findings, journeys, personas, prompts, runs
+from app.db.migrate import migrate_merge_jobs_into_runs
 from app.db.session import engine
 from app.models.base import Base
 from app.seed import run_seed
@@ -20,6 +21,8 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    async with engine.begin() as conn:
+        await conn.run_sync(migrate_merge_jobs_into_runs)
     await run_seed()
     yield
 
