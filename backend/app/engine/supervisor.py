@@ -20,7 +20,7 @@ def score_run(
     """
     deduped, agreement = _deduplicate(all_findings)
 
-    severity_order = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
+    severity_order = {"critical": 3, "needs_attention": 2, "nits": 1}
     deduped.sort(
         key=lambda f: (
             severity_order.get(f["severity"], 0),
@@ -57,7 +57,7 @@ def _deduplicate(
 
 
 def _merge_group(findings: list[dict]) -> list[tuple[dict, list[str]]]:
-    severity_order = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
+    severity_order = {"critical": 3, "needs_attention": 2, "nits": 1}
     clusters: list[tuple[dict, list[str]]] = []
 
     for finding in findings:
@@ -96,11 +96,9 @@ def _compute_score(findings: list[dict], any_blocked: bool) -> str:
 
     if counts["critical"] > 0:
         return "RED"
-    if counts["high"] >= 3:
+    if counts["needs_attention"] >= 3:
         return "RED"
-    if counts["high"] > 0:
-        return "YELLOW"
-    if counts["medium"] >= 5:
+    if counts["needs_attention"] > 0:
         return "YELLOW"
     return "GREEN"
 
@@ -120,18 +118,14 @@ def _build_rationale(score: str, findings: list[dict], any_blocked: bool) -> str
                 f"require immediate attention."
             )
         return (
-            f"RED: {counts['high']} high-severity findings indicate significant issues."
+            f"RED: {counts['needs_attention']} finding(s) need attention "
+            f"before production use."
         )
 
     if score == "YELLOW":
-        if counts["high"] > 0:
-            return (
-                f"YELLOW: {counts['high']} high-severity finding(s) "
-                f"need attention before production use."
-            )
         return (
-            f"YELLOW: {counts['medium']} medium-severity findings "
-            f"suggest room for improvement."
+            f"YELLOW: {counts['needs_attention']} finding(s) "
+            f"need attention before production use."
         )
 
     total = sum(counts.values())

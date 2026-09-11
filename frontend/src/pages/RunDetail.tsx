@@ -15,6 +15,17 @@ function isPhaseErrored(phase: JourneyPhaseRef, persona: RunPersonaDetail): bool
   return typeof summary === 'string' && summary.startsWith('BLOCKED:');
 }
 
+const FINDING_SEVERITIES = ['critical', 'needs_attention', 'nits'] as const;
+
+function bucketSeverity(severity: string): (typeof FINDING_SEVERITIES)[number] {
+  const key = severity.toLowerCase().replace(/-/g, '_').replace(/ /g, '_');
+  if (key === 'critical') return 'critical';
+  if (key === 'needs_attention' || key === 'high' || key === 'medium') {
+    return 'needs_attention';
+  }
+  return 'nits';
+}
+
 function phaseState(
   phase: JourneyPhaseRef,
   persona: RunPersonaDetail,
@@ -232,11 +243,11 @@ export default function RunDetail() {
   const personaFindings = activePersona?.findings ?? [];
   const severityCounts = personaFindings.reduce(
     (acc, f) => {
-      const key = f.severity.toLowerCase();
+      const key = bucketSeverity(f.severity);
       acc[key] = (acc[key] || 0) + 1;
       return acc;
     },
-    {} as Record<string, number>,
+    {} as Record<(typeof FINDING_SEVERITIES)[number], number>,
   );
 
   return (
@@ -313,7 +324,7 @@ export default function RunDetail() {
               <div className="findings-summary-section">
                 <h4>Findings Summary</h4>
                 <div className="summary-grid">
-                  {['critical', 'high', 'medium', 'low', 'info'].map((sev) => (
+                  {FINDING_SEVERITIES.map((sev) => (
                     <div key={sev} className="summary-card">
                       <span className={`summary-count${findingsPending ? ' summary-count--pending' : ''}`}>
                         {findingsPending ? 'pending' : severityCounts[sev] || 0}
@@ -321,12 +332,6 @@ export default function RunDetail() {
                       <SeverityBadge severity={sev} />
                     </div>
                   ))}
-                  <div className="summary-card">
-                    <span className={`summary-count${findingsPending ? ' summary-count--pending' : ''}`}>
-                      {findingsPending ? 'pending' : personaFindings.length}
-                    </span>
-                    <span className="summary-label">Total</span>
-                  </div>
                 </div>
               </div>
 

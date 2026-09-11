@@ -16,19 +16,29 @@ from app.models.base import Base, TimestampMixin
 
 class Severity(enum.Enum):
     critical = "critical"
-    high = "high"
-    medium = "medium"
-    low = "low"
-    info = "info"
+    needs_attention = "needs_attention"
+    nits = "nits"
 
 
 SEVERITY_RANK = {
-    Severity.critical: 4,
-    Severity.high: 3,
-    Severity.medium: 2,
-    Severity.low: 1,
-    Severity.info: 0,
+    Severity.critical: 2,
+    Severity.needs_attention: 1,
+    Severity.nits: 0,
 }
+
+_LEGACY_SEVERITY_MAP = {
+    "high": Severity.needs_attention,
+    "medium": Severity.needs_attention,
+    "low": Severity.nits,
+    "info": Severity.nits,
+}
+
+
+def normalize_severity(value: str) -> Severity:
+    key = value.lower().strip().replace("-", "_").replace(" ", "_")
+    if key in _LEGACY_SEVERITY_MAP:
+        return _LEGACY_SEVERITY_MAP[key]
+    return Severity(key)
 
 
 class GlobalFindingStatus(enum.Enum):

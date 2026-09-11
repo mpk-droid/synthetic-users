@@ -22,10 +22,8 @@
 
   /* Severity */
   --color-severity-critical: #ef4444;
-  --color-severity-high: #f97316;
-  --color-severity-medium: #eab308;
-  --color-severity-low: #3b82f6;
-  --color-severity-info: #6b7280;
+  --color-severity-needs-attention: #f97316;
+  --color-severity-nits: #6b7280;
 
   /* UI */
   --color-primary: #2563eb;
@@ -1076,7 +1074,7 @@ h1, h2, h3, h4 {
 .phase-timeline-dot--active {
   border: 2px solid var(--color-green);
   background: var(--color-green);
-  animation: phase-alive-pulse 1.2s ease-in-out infinite;
+  animation: phase-alive-pulse 2.8s ease-in-out infinite;
 }
 
 .phase-timeline-dot--error {
@@ -1120,7 +1118,6 @@ h1, h2, h3, h4 {
 .phase-timeline-item--active .phase-timeline-label {
   color: var(--color-green);
   font-weight: 600;
-  animation: phase-alive-text 1.2s ease-in-out infinite;
 }
 
 .phase-timeline-item--error .phase-timeline-label {
@@ -1135,20 +1132,16 @@ h1, h2, h3, h4 {
 @keyframes phase-alive-pulse {
   0%, 100% {
     opacity: 1;
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-green) 45%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-green) 35%, transparent);
     transform: scale(1);
   }
   50% {
-    opacity: 0.75;
-    box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-green) 0%, transparent);
-    transform: scale(1.08);
+    opacity: 0.88;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-green) 0%, transparent);
+    transform: scale(1.04);
   }
 }
 
-@keyframes phase-alive-text {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.65; }
-}
 
 .tab-phase-hint {
   font-size: 0.75rem;
@@ -1265,7 +1258,7 @@ h1, h2, h3, h4 {
 
 .persona-picker-dot--live {
   background: var(--color-green);
-  animation: phase-alive-pulse 1.2s ease-in-out infinite;
+  animation: phase-alive-pulse 2.8s ease-in-out infinite;
 }
 
 .persona-picker-dot--error {

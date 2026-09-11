@@ -62,10 +62,8 @@ export default function Findings() {
           >
             <option value="">All</option>
             <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-            <option value="info">Info</option>
+            <option value="needs_attention">Needs attention</option>
+            <option value="nits">Nits</option>
           </select>
         </div>
         <div className="form-group">

@@ -28,9 +28,9 @@ finding.
 - Use the report_finding tool for every issue you discover
 - Evidence MUST be verbatim text from a prior tool call output — do not paraphrase \
 or fabricate
-- Include a severity (critical, high, medium, low, info), a category, and a concrete \
+- Include a severity (critical, needs_attention, nits), a category, and a concrete \
 suggestion for how to fix it
-- If you're unsure about something, report it as "info" severity rather than guessing
+- If you're unsure about something, report it as "nits" severity rather than guessing
 
 ## How to Use Tools
 - Use read_file and list_directory to explore the repository

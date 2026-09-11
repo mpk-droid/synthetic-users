@@ -15,7 +15,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.db.session import async_session, get_db
 from app.engine.runner import execute_orchestrated_run
 from app.models.finding import Finding as FindingModel
-from app.models.finding import GlobalFinding, Severity
+from app.models.finding import GlobalFinding, normalize_severity
 from app.models.journey import Journey
 from app.models.persona import Persona
 from app.models.run import (
@@ -575,7 +575,7 @@ async def agent_progress(
             if existing.scalar_one_or_none() is None:
                 finding = FindingModel(
                     run_persona_id=rp.id,
-                    severity=Severity(f_data["severity"]),
+                    severity=normalize_severity(f_data["severity"]),
                     category=f_data["category"],
                     title=f_data["title"],
                     description=f_data["description"],
@@ -655,7 +655,7 @@ async def agent_done(
             continue
         finding = FindingModel(
             run_persona_id=rp.id,
-            severity=Severity(f_data["severity"]),
+            severity=normalize_severity(f_data["severity"]),
             category=f_data["category"],
             title=f_data["title"],
             description=f_data["description"],

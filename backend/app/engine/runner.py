@@ -419,7 +419,7 @@ async def _upsert_global_findings(
     from sqlalchemy import select
 
     from app.db.session import async_session
-    from app.models.finding import SEVERITY_RANK, GlobalFinding, Severity
+    from app.models.finding import SEVERITY_RANK, GlobalFinding, normalize_severity
 
     async with async_session() as db:
         for f in findings:
@@ -444,7 +444,7 @@ async def _upsert_global_findings(
                 if f.get("suggestion"):
                     existing.suggestion = f["suggestion"]
 
-                new_sev = Severity(f["severity"])
+                new_sev = normalize_severity(f["severity"])
                 if SEVERITY_RANK[new_sev] > SEVERITY_RANK[existing.severity]:
                     existing.severity = new_sev
 
@@ -461,7 +461,7 @@ async def _upsert_global_findings(
                 gf = GlobalFinding(
                     repo_url=repo_url,
                     fingerprint=fingerprint,
-                    severity=Severity(f["severity"]),
+                    severity=normalize_severity(f["severity"]),
                     category=f["category"],
                     title=f["title"],
                     description=f["description"],

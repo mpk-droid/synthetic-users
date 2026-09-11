@@ -55,3 +55,50 @@ def migrate_merge_jobs_into_runs(connection) -> None:
         connection.execute(text("ALTER TABLE runs DROP COLUMN job_id"))
 
     connection.execute(text("DROP TABLE jobs"))
+
+
+def migrate_severity_levels(connection) -> None:
+    """Migrate five-level severity enum to critical / needs_attention / nits."""
+    inspector = inspect(connection)
+    if "findings" not in inspector.get_table_names():
+        return
+
+    has_legacy = connection.execute(
+        text(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM pg_enum e
+                JOIN pg_type t ON e.enumtypid = t.oid
+                WHERE t.typname = 'severity' AND e.enumlabel = 'high'
+            )
+            """
+        )
+    ).scalar()
+    if not has_legacy:
+        return
+
+    connection.execute(
+        text("CREATE TYPE severity_new AS ENUM ('critical', 'needs_attention', 'nits')")
+    )
+    for table in ("findings", "global_findings"):
+        connection.execute(
+            text(
+                f"""
+                ALTER TABLE {table}
+                ALTER COLUMN severity TYPE severity_new
+                USING (
+                    CASE severity::text
+                        WHEN 'critical' THEN 'critical'::severity_new
+                        WHEN 'high' THEN 'needs_attention'::severity_new
+                        WHEN 'medium' THEN 'needs_attention'::severity_new
+                        WHEN 'low' THEN 'nits'::severity_new
+                        WHEN 'info' THEN 'nits'::severity_new
+                        ELSE 'nits'::severity_new
+                    END
+                )
+                """
+            )
+        )
+    connection.execute(text("DROP TYPE severity"))
+    connection.execute(text("ALTER TYPE severity_new RENAME TO severity"))

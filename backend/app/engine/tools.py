@@ -107,7 +107,7 @@ TOOL_SCHEMAS: list[dict] = [
             "properties": {
                 "severity": {
                     "type": "string",
-                    "enum": ["critical", "high", "medium", "low", "info"],
+                    "enum": ["critical", "needs_attention", "nits"],
                 },
                 "category": {"type": "string"},
                 "title": {"type": "string"},
@@ -364,11 +364,14 @@ async def _tool_http_request(arguments: dict, ctx: ToolContext) -> str:
 def _tool_report_finding(
     arguments: dict, ctx: ToolContext, phase: str, persona: str
 ) -> str:
+    from app.models.finding import normalize_severity
+
     evidence = arguments["evidence"]
     verified = ctx.verify_evidence(evidence)
+    severity = normalize_severity(arguments["severity"]).value
 
     finding = {
-        "severity": arguments["severity"],
+        "severity": severity,
         "category": arguments["category"],
         "title": arguments["title"],
         "description": arguments["description"],
