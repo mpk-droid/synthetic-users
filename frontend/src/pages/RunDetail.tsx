@@ -890,45 +890,60 @@ export default function RunDetail() {
 
           {isOverview ? (
             <div className="persona-detail persona-detail--overview">
-              <FindingsSection
-                findings={overviewFindings}
-                findingsPending={overviewFindingsPending}
-                emptyMessage={
-                  overviewFindingsPending
-                    ? 'Findings will appear here as personas complete their evaluation.'
-                    : 'No findings for this run.'
-                }
-                exportFilename={`${sanitizeFilename(run.name)}-overview-findings.csv`}
-                showPersonaColumn
-                personaOptions={overviewPersonaOptions}
-              />
+              <section className="run-activity-section run-activity-section--overview">
+                <PhaseActivityTerminal
+                  phaseName="Overview"
+                  lines={[]}
+                  isLive={false}
+                  phaseState="pending"
+                  emptyMessage="TBD"
+                />
+              </section>
+              <section className="run-findings-panel">
+                <FindingsSection
+                  findings={overviewFindings}
+                  findingsPending={overviewFindingsPending}
+                  emptyMessage={
+                    overviewFindingsPending
+                      ? 'Findings will appear here as personas complete their evaluation.'
+                      : 'No findings for this run.'
+                  }
+                  exportFilename={`${sanitizeFilename(run.name)}-overview-findings.csv`}
+                  showPersonaColumn
+                  personaOptions={overviewPersonaOptions}
+                />
+              </section>
             </div>
           ) : (
             activePersona && (
             <div className="persona-detail">
-              {run.journey_phases?.length > 0 && (
-                <PhaseProgress phases={run.journey_phases} persona={activePersona} />
-              )}
+              <section className="run-activity-section">
+                {activePersona.blocked_phase && (
+                  <div className="blocked-notice">
+                    <strong>Blocked at phase:</strong> {activePersona.blocked_phase}
+                    {activePersona.blocked_reason && (
+                      <span> — {activePersona.blocked_reason}</span>
+                    )}
+                  </div>
+                )}
 
-              {activePersona.blocked_phase && (
-                <div className="blocked-notice">
-                  <strong>Blocked at phase:</strong> {activePersona.blocked_phase}
-                  {activePersona.blocked_reason && (
-                    <span> — {activePersona.blocked_reason}</span>
-                  )}
-                </div>
-              )}
+                {run.journey_phases?.length > 0 && (
+                  <PhaseProgress phases={run.journey_phases} persona={activePersona} />
+                )}
+              </section>
 
-              <FindingsSection
-                findings={personaFindings}
-                findingsPending={findingsPending}
-                emptyMessage={
-                  findingsPending
-                    ? 'Findings will appear here when the run completes.'
-                    : 'No findings for this persona.'
-                }
-                exportFilename={`${sanitizeFilename(run.name)}-${sanitizeFilename(personaName(activePersona.persona_id))}-findings.csv`}
-              />
+              <section className="run-findings-panel">
+                <FindingsSection
+                  findings={personaFindings}
+                  findingsPending={findingsPending}
+                  emptyMessage={
+                    findingsPending
+                      ? 'Findings will appear here when the run completes.'
+                      : 'No findings for this persona.'
+                  }
+                  exportFilename={`${sanitizeFilename(run.name)}-${sanitizeFilename(personaName(activePersona.persona_id))}-findings.csv`}
+                />
+              </section>
             </div>
             )
           )}
