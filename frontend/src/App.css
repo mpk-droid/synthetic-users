@@ -995,32 +995,32 @@ h1, h2, h3, h4 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-left: 2px;
+  width: 32px;
+  height: 32px;
+  margin-left: 4px;
   padding: 0;
-  border: 1px solid var(--color-gray-200);
+  border: 1px solid var(--color-primary);
   border-radius: var(--border-radius);
-  background: var(--color-white);
-  color: var(--color-gray-600);
+  background: var(--color-primary);
+  color: var(--color-white);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .findings-export-btn:hover:not(:disabled) {
-  background: var(--color-gray-50);
-  color: var(--color-gray-800);
-  border-color: var(--color-gray-300);
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.35);
 }
 
 .findings-export-btn:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .findings-export-btn__icon {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
 }
 
 .finding-detail-row td {
@@ -1104,6 +1104,10 @@ h1, h2, h3, h4 {
     grid-template-columns: 1fr;
   }
 
+  .phase-activity-connector {
+    display: none;
+  }
+
 
   .sidebar {
     width: 100%;
@@ -1177,6 +1181,33 @@ h1, h2, h3, h4 {
   grid-template-columns: minmax(0, 0.32fr) minmax(0, 0.68fr);
   gap: 1rem;
   align-items: start;
+  position: relative;
+}
+
+.run-progress-right {
+  min-width: 0;
+}
+
+.phase-activity-connector {
+  position: absolute;
+  height: 2px;
+  background: var(--color-primary);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 2;
+  transform: translateY(-50%);
+}
+
+.phase-activity-connector::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  transform: translateY(-50%);
 }
 
 .run-progress-left {
@@ -1243,8 +1274,12 @@ h1, h2, h3, h4 {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-gray-300);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.phase-activity-terminal__title-phase {
+  color: #f3f4f6;
+  font-weight: 600;
 }
 
 .phase-activity-terminal__status {
@@ -1310,12 +1345,6 @@ h1, h2, h3, h4 {
 
 .phase-activity-terminal__body::-webkit-scrollbar-thumb:hover {
   background: #6d7788;
-}
-
-.phase-activity-terminal__phase {
-  color: #f3f4f6;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
 }
 
 .phase-activity-terminal__list {
@@ -1514,7 +1543,7 @@ h1, h2, h3, h4 {
 .persona-picker {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.25rem;
+  gap: 0.5rem;
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--color-gray-200);
@@ -1524,24 +1553,33 @@ h1, h2, h3, h4 {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.15rem 0;
-  border: none;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius);
   background: none;
   cursor: pointer;
   font: inherit;
   font-size: 1.05rem;
   font-weight: 500;
   color: var(--color-gray-600);
-  transition: color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .persona-picker-item:hover {
+  background: var(--color-gray-50);
   color: var(--color-gray-700);
 }
 
 .persona-picker-item--active {
+  background: var(--color-gray-100);
+  border-color: var(--color-gray-300);
+  box-shadow: inset 3px 0 0 var(--color-primary);
   color: var(--color-gray-900);
-  font-weight: 700;
+  font-weight: 600;
+}
+
+.persona-picker-item--active:hover {
+  background: var(--color-gray-100);
 }
 
 .persona-picker-name {
@@ -1569,6 +1607,12 @@ h1, h2, h3, h4 {
 
 .persona-picker-dot--error {
   background: var(--color-red);
+}
+
+.persona-picker-dot--overview {
+  background: var(--color-gray-200);
+  border: 2px solid var(--color-gray-400);
+  box-sizing: border-box;
 }
 
 .persona-progress-panel .run-progress {

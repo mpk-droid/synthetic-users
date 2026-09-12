@@ -308,7 +308,9 @@ function PhaseActivityTerminal({
       aria-label={`Activity log for ${phaseName}`}
     >
       <div className="phase-activity-terminal__chrome">
-        <span className="phase-activity-terminal__title">Activity</span>
+        <span className="phase-activity-terminal__title">
+          Activity: <span className="phase-activity-terminal__title-phase">{phaseName}</span>
+        </span>
         <PhaseActivityStatus isLive={isLive} phaseState={phaseState} />
       </div>
       <div
@@ -316,7 +318,6 @@ function PhaseActivityTerminal({
         ref={bodyRef}
         onScroll={handleScroll}
       >
-        <div className="phase-activity-terminal__phase">{phaseName}:</div>
         {lines.length === 0 ? (
           <p className="phase-activity-terminal__empty">{emptyMessage}</p>
         ) : (
@@ -343,26 +344,64 @@ function PhaseProgress({
   );
   const [userPickedPhase, setUserPickedPhase] = useState(false);
   const leftColumnRef = useRef<HTMLDivElement>(null);
+  const progressBodyRef = useRef<HTMLDivElement>(null);
+  const selectedItemRef = useRef<HTMLButtonElement>(null);
+  const terminalRef = useRef<HTMLDivElement>(null);
   const [panelHeight, setPanelHeight] = useState<number>();
+  const [connector, setConnector] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
 
   useLayoutEffect(() => {
     const el = leftColumnRef.current;
     if (!el) return;
 
-    const syncHeight = () => {
+    const syncLayout = () => {
       setPanelHeight(el.getBoundingClientRect().height);
+
+      const body = progressBodyRef.current;
+      const selected = selectedItemRef.current;
+      const terminal = terminalRef.current;
+      if (!body || !selected || !terminal) {
+        setConnector(null);
+        return;
+      }
+
+      const bodyRect = body.getBoundingClientRect();
+      const selectedRect = selected.getBoundingClientRect();
+      const terminalRect = terminal.getBoundingClientRect();
+      const top = selectedRect.top + selectedRect.height / 2 - bodyRect.top;
+      const left = selectedRect.right - bodyRect.left;
+      const width = terminalRect.left - selectedRect.right;
+
+      if (width <= 4) {
+        setConnector(null);
+        return;
+      }
+
+      setConnector({ top, left, width });
     };
 
-    syncHeight();
-    const observer = new ResizeObserver(syncHeight);
+    syncLayout();
+    const observer = new ResizeObserver(syncLayout);
     observer.observe(el);
-    window.addEventListener('resize', syncHeight);
+    if (progressBodyRef.current) observer.observe(progressBodyRef.current);
+    if (terminalRef.current) observer.observe(terminalRef.current);
+    window.addEventListener('resize', syncLayout);
 
     return () => {
       observer.disconnect();
-      window.removeEventListener('resize', syncHeight);
+      window.removeEventListener('resize', syncLayout);
     };
-  }, [phases.length, persona.id, persona.status, persona.current_phase]);
+  }, [
+    phases.length,
+    persona.id,
+    persona.status,
+    persona.current_phase,
+    selectedPhaseName,
+  ]);
 
   useEffect(() => {
     setUserPickedPhase(false);
@@ -395,7 +434,7 @@ function PhaseProgress({
 
   return (
     <div className="run-progress">
-      <div className="run-progress-body">
+      <div className="run-progress-body" ref={progressBodyRef}>
         <div className="run-progress-left" ref={leftColumnRef}>
           <div className="run-progress-header">
             <span className="run-progress-label">
@@ -422,6 +461,7 @@ function PhaseProgress({
                 <button
                   key={phase.order}
                   type="button"
+                  ref={isSelected ? selectedItemRef : undefined}
                   className={`phase-timeline-item phase-timeline-item--${state}${
                     isSelected ? ' phase-timeline-item--selected' : ''
                   }`}
@@ -455,18 +495,31 @@ function PhaseProgress({
           </div>
         </div>
 
-        <PhaseActivityTerminal
-          phaseName={selectedPhase?.name ?? 'Phase'}
-          lines={terminalLines}
-          isLive={terminalLive}
-          phaseState={selectedState}
-          height={panelHeight}
-          emptyMessage={
-            selectedState === 'pending'
-              ? 'This phase has not started yet.'
-              : 'Waiting for activity...'
-          }
-        />
+        <div className="run-progress-right" ref={terminalRef}>
+          <PhaseActivityTerminal
+            phaseName={selectedPhase?.name ?? 'Phase'}
+            lines={terminalLines}
+            isLive={terminalLive}
+            phaseState={selectedState}
+            height={panelHeight}
+            emptyMessage={
+              selectedState === 'pending'
+                ? 'This phase has not started yet.'
+                : 'Waiting for activity...'
+            }
+          />
+        </div>
+        {connector && (
+          <span
+            className="phase-activity-connector"
+            style={{
+              top: connector.top,
+              left: connector.left,
+              width: connector.width,
+            }}
+            aria-hidden="true"
+          />
+        )}
       </div>
 
       {isErrored && persona.blocked_reason && (
@@ -475,6 +528,241 @@ function PhaseProgress({
     </div>
   );
 }
+
+type FindingRow = FindingResponse & { personaLabel?: string };
+
+function FindingsSection({
+  findings,
+  findingsPending,
+  emptyMessage,
+  exportFilename,
+  showPersonaColumn = false,
+  personaOptions = [],
+}: {
+  findings: FindingRow[];
+  findingsPending: boolean;
+  emptyMessage: string;
+  exportFilename: string;
+  showPersonaColumn?: boolean;
+  personaOptions?: string[];
+}) {
+  const [expandedFindings, setExpandedFindings] = useState<Set<string>>(new Set());
+  const [severityFilter, setSeverityFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [phaseFilter, setPhaseFilter] = useState('');
+  const [personaFilter, setPersonaFilter] = useState('');
+
+  const categoryOptions = [...new Set(findings.map((f) => f.category))].sort();
+  const phaseOptions = [...new Set(findings.map((f) => f.phase))].sort();
+  const filteredFindings = [...findings]
+    .filter((f) => {
+      if (severityFilter && bucketSeverity(f.severity) !== severityFilter) {
+        return false;
+      }
+      if (categoryFilter && f.category !== categoryFilter) return false;
+      if (phaseFilter && f.phase !== phaseFilter) return false;
+      if (personaFilter && f.personaLabel !== personaFilter) return false;
+      return true;
+    })
+    .sort(compareFindings);
+  const severityCounts = findings.reduce(
+    (acc, f) => {
+      const key = bucketSeverity(f.severity);
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    },
+    {} as Record<(typeof FINDING_SEVERITIES)[number], number>,
+  );
+
+  const toggleFinding = (findingId: string) => {
+    setExpandedFindings((prev) => {
+      const next = new Set(prev);
+      if (next.has(findingId)) next.delete(findingId);
+      else next.add(findingId);
+      return next;
+    });
+  };
+
+  const columnCount = showPersonaColumn ? 5 : 4;
+
+  return (
+    <div className="findings-section">
+      <div className="findings-section__header">
+        <h4 className="findings-section__title">
+          Findings
+          <span className="findings-section__count">
+            (
+            {filteredFindings.length !== findings.length
+              ? `${filteredFindings.length} of ${findings.length}`
+              : findings.length}
+            )
+          </span>
+        </h4>
+        <div className="findings-section__stats">
+          {FINDING_SEVERITIES.map((sev) => (
+            <div key={sev} className="findings-stat">
+              <SeverityBadge severity={sev} showColon />
+              <span
+                className={`findings-stat__count${findingsPending ? ' findings-stat__count--pending' : ''}`}
+              >
+                {findingsPending ? 'pending' : severityCounts[sev] || 0}
+              </span>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="findings-export-btn"
+            title="export to csv"
+            aria-label="export to csv"
+            disabled={filteredFindings.length === 0}
+            onClick={() => exportFindingsToCsv(filteredFindings, exportFilename)}
+          >
+            <IconExport className="findings-export-btn__icon" />
+          </button>
+        </div>
+      </div>
+      {findings.length === 0 ? (
+        <p className="empty-state">{emptyMessage}</p>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>
+                <label className="data-table__th-filter">
+                  <span className="data-table__th-label">Severity</span>
+                  <select
+                    aria-label="Filter by severity"
+                    value={severityFilter}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setSeverityFilter(e.target.value)}
+                  >
+                    <option value="">All</option>
+                    <option value="critical">Critical</option>
+                    <option value="needs_attention">Needs attention</option>
+                    <option value="nits">Nits</option>
+                  </select>
+                </label>
+              </th>
+              <th>
+                <label className="data-table__th-filter">
+                  <span className="data-table__th-label">Category</span>
+                  <select
+                    aria-label="Filter by category"
+                    value={categoryFilter}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                  >
+                    <option value="">All</option>
+                    {categoryOptions.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </th>
+              <th>Title</th>
+              {showPersonaColumn && (
+                <th>
+                  <label className="data-table__th-filter">
+                    <span className="data-table__th-label">Persona</span>
+                    <select
+                      aria-label="Filter by persona"
+                      value={personaFilter}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setPersonaFilter(e.target.value)}
+                    >
+                      <option value="">All</option>
+                      {personaOptions.map((persona) => (
+                        <option key={persona} value={persona}>
+                          {persona}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </th>
+              )}
+              <th>
+                <label className="data-table__th-filter">
+                  <span className="data-table__th-label">Phase</span>
+                  <select
+                    aria-label="Filter by phase"
+                    value={phaseFilter}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setPhaseFilter(e.target.value)}
+                  >
+                    <option value="">All</option>
+                    {phaseOptions.map((phase) => (
+                      <option key={phase} value={phase}>
+                        {phase}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredFindings.length === 0 ? (
+              <tr>
+                <td colSpan={columnCount} className="data-table__empty">
+                  No findings match the current filters.
+                </td>
+              </tr>
+            ) : (
+              filteredFindings.map((f) => (
+                <Fragment key={f.id}>
+                  <tr
+                    className="data-table__row--clickable"
+                    onClick={() => toggleFinding(f.id)}
+                  >
+                    <td>
+                      <SeverityBadge severity={f.severity} />
+                    </td>
+                    <td>{f.category}</td>
+                    <td>{f.title}</td>
+                    {showPersonaColumn && <td>{f.personaLabel}</td>}
+                    <td>{f.phase}</td>
+                  </tr>
+                  {expandedFindings.has(f.id) && (
+                    <tr className="finding-detail-row">
+                      <td colSpan={columnCount}>
+                        <div className="finding-detail">
+                          <div className="finding-description">
+                            <strong>Description</strong>
+                            <p>{f.description}</p>
+                          </div>
+                          <div className="finding-evidence">
+                            <strong>Evidence</strong>
+                            <blockquote>{f.evidence}</blockquote>
+                          </div>
+                          {f.suggestion && (
+                            <div className="finding-suggestion">
+                              <strong>Suggestion</strong>
+                              <p>{f.suggestion}</p>
+                            </div>
+                          )}
+                          {f.file_path && (
+                            <div className="finding-file">
+                              <strong>File:</strong> <code>{f.file_path}</code>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))
+            )}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+type PersonaTab = 'overview' | number;
+
 
 export default function RunDetail() {
   const { id } = useParams<{ id: string }>();
@@ -495,26 +783,7 @@ export default function RunDetail() {
     queryFn: getPersonas,
   });
 
-  const [activePersonaIdx, setActivePersonaIdx] = useState(0);
-  const [expandedFindings, setExpandedFindings] = useState<Set<string>>(new Set());
-  const [severityFilter, setSeverityFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [phaseFilter, setPhaseFilter] = useState('');
-
-  useEffect(() => {
-    setSeverityFilter('');
-    setCategoryFilter('');
-    setPhaseFilter('');
-  }, [activePersonaIdx]);
-
-  const toggleFinding = (findingId: string) => {
-    setExpandedFindings((prev) => {
-      const next = new Set(prev);
-      if (next.has(findingId)) next.delete(findingId);
-      else next.add(findingId);
-      return next;
-    });
-  };
+  const [activeTab, setActiveTab] = useState<PersonaTab>(0);
 
   if (isLoading) return <p className="loading">Loading run details...</p>;
   if (error) return <p className="error">Failed to load run details.</p>;
@@ -523,32 +792,26 @@ export default function RunDetail() {
   const personaName = (personaId: string) =>
     allPersonas?.find((p) => p.id === personaId)?.name || personaId.slice(0, 8);
 
-  const activePersona: RunPersonaDetail | undefined = run.personas[activePersonaIdx];
+  const isOverview = activeTab === 'overview';
+  const activePersona: RunPersonaDetail | undefined =
+    typeof activeTab === 'number' ? run.personas[activeTab] : undefined;
   const isRunActive = run.status === 'pending' || run.status === 'running';
+  const personaFindings = activePersona?.findings ?? [];
   const findingsPending =
     activePersona?.status === 'running' || activePersona?.status === 'pending';
-
-  const personaFindings = activePersona?.findings ?? [];
-  const categoryOptions = [...new Set(personaFindings.map((f) => f.category))].sort();
-  const phaseOptions = [...new Set(personaFindings.map((f) => f.phase))].sort();
-  const filteredFindings = [...personaFindings]
-    .filter((f) => {
-      if (severityFilter && bucketSeverity(f.severity) !== severityFilter) {
-        return false;
-      }
-      if (categoryFilter && f.category !== categoryFilter) return false;
-      if (phaseFilter && f.phase !== phaseFilter) return false;
-      return true;
-    })
-    .sort(compareFindings);
-  const severityCounts = personaFindings.reduce(
-    (acc, f) => {
-      const key = bucketSeverity(f.severity);
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    },
-    {} as Record<(typeof FINDING_SEVERITIES)[number], number>,
+  const overviewFindings: FindingRow[] = run.personas.flatMap((persona) => {
+    const label = personaName(persona.persona_id);
+    return (persona.findings ?? []).map((finding) => ({
+      ...finding,
+      personaLabel: label,
+    }));
+  });
+  const overviewFindingsPending = run.personas.some(
+    (persona) => persona.status === 'running' || persona.status === 'pending',
   );
+  const overviewPersonaOptions = run.personas
+    .map((persona) => personaName(persona.persona_id))
+    .sort();
 
   return (
     <div className="page">
@@ -585,9 +848,22 @@ export default function RunDetail() {
       {run.personas.length > 0 && (
         <section className="section persona-progress-panel">
           <div className="persona-picker" role="tablist" aria-label="Personas">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isOverview}
+              className={`persona-picker-item persona-picker-item--overview ${isOverview ? 'persona-picker-item--active' : ''}`}
+              onClick={() => setActiveTab('overview')}
+            >
+              <span
+                className="persona-picker-dot persona-picker-dot--overview"
+                aria-hidden="true"
+              />
+              <span className="persona-picker-name">Overview</span>
+            </button>
             {run.personas.map((p, idx) => {
               const name = personaName(p.persona_id);
-              const isSelected = idx === activePersonaIdx;
+              const isSelected = activeTab === idx;
               const dotClass =
                 p.status === 'running'
                   ? 'persona-picker-dot--live'
@@ -603,7 +879,7 @@ export default function RunDetail() {
                   role="tab"
                   aria-selected={isSelected}
                   className={`persona-picker-item ${isSelected ? 'persona-picker-item--active' : ''}`}
-                  onClick={() => setActivePersonaIdx(idx)}
+                  onClick={() => setActiveTab(idx)}
                 >
                   <span className={`persona-picker-dot ${dotClass}`} aria-hidden="true" />
                   <span className="persona-picker-name">{name}</span>
@@ -612,7 +888,23 @@ export default function RunDetail() {
             })}
           </div>
 
-          {activePersona && (
+          {isOverview ? (
+            <div className="persona-detail persona-detail--overview">
+              <FindingsSection
+                findings={overviewFindings}
+                findingsPending={overviewFindingsPending}
+                emptyMessage={
+                  overviewFindingsPending
+                    ? 'Findings will appear here as personas complete their evaluation.'
+                    : 'No findings for this run.'
+                }
+                exportFilename={`${sanitizeFilename(run.name)}-overview-findings.csv`}
+                showPersonaColumn
+                personaOptions={overviewPersonaOptions}
+              />
+            </div>
+          ) : (
+            activePersona && (
             <div className="persona-detail">
               {run.journey_phases?.length > 0 && (
                 <PhaseProgress phases={run.journey_phases} persona={activePersona} />
@@ -627,174 +919,18 @@ export default function RunDetail() {
                 </div>
               )}
 
-              <div className="findings-section">
-                <div className="findings-section__header">
-                  <h4 className="findings-section__title">
-                    Findings
-                    <span className="findings-section__count">
-                      (
-                      {filteredFindings.length !== personaFindings.length
-                        ? `${filteredFindings.length} of ${personaFindings.length}`
-                        : personaFindings.length}
-                      )
-                    </span>
-                  </h4>
-                  <div className="findings-section__stats">
-                    {FINDING_SEVERITIES.map((sev) => (
-                      <div key={sev} className="findings-stat">
-                        <SeverityBadge severity={sev} showColon />
-                        <span
-                          className={`findings-stat__count${findingsPending ? ' findings-stat__count--pending' : ''}`}
-                        >
-                          {findingsPending ? 'pending' : severityCounts[sev] || 0}
-                        </span>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      className="findings-export-btn"
-                      title="export to csv"
-                      aria-label="export to csv"
-                      disabled={filteredFindings.length === 0}
-                      onClick={() => {
-                        const personaLabel = activePersona
-                          ? sanitizeFilename(
-                              personaName(activePersona.persona_id),
-                            )
-                          : 'persona';
-                        const runLabel = sanitizeFilename(run.name);
-                        exportFindingsToCsv(
-                          filteredFindings,
-                          `${runLabel}-${personaLabel}-findings.csv`,
-                        );
-                      }}
-                    >
-                      <IconExport className="findings-export-btn__icon" />
-                    </button>
-                  </div>
-                </div>
-                {personaFindings.length === 0 ? (
-                  <p className="empty-state">
-                    {findingsPending
-                      ? 'Findings will appear here when the run completes.'
-                      : 'No findings for this persona.'}
-                  </p>
-                ) : (
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th>
-                              <label className="data-table__th-filter">
-                                <span className="data-table__th-label">Severity</span>
-                                <select
-                                  aria-label="Filter by severity"
-                                  value={severityFilter}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={(e) => setSeverityFilter(e.target.value)}
-                                >
-                                  <option value="">All</option>
-                                  <option value="critical">Critical</option>
-                                  <option value="needs_attention">Needs attention</option>
-                                  <option value="nits">Nits</option>
-                                </select>
-                              </label>
-                            </th>
-                            <th>
-                              <label className="data-table__th-filter">
-                                <span className="data-table__th-label">Category</span>
-                                <select
-                                  aria-label="Filter by category"
-                                  value={categoryFilter}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={(e) => setCategoryFilter(e.target.value)}
-                                >
-                                  <option value="">All</option>
-                                  {categoryOptions.map((category) => (
-                                    <option key={category} value={category}>
-                                      {category}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            </th>
-                            <th>Title</th>
-                            <th>
-                              <label className="data-table__th-filter">
-                                <span className="data-table__th-label">Phase</span>
-                                <select
-                                  aria-label="Filter by phase"
-                                  value={phaseFilter}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={(e) => setPhaseFilter(e.target.value)}
-                                >
-                                  <option value="">All</option>
-                                  {phaseOptions.map((phase) => (
-                                    <option key={phase} value={phase}>
-                                      {phase}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredFindings.length === 0 ? (
-                            <tr>
-                              <td colSpan={4} className="data-table__empty">
-                                No findings match the current filters.
-                              </td>
-                            </tr>
-                          ) : (
-                          filteredFindings.map((f: FindingResponse) => (
-                            <Fragment key={f.id}>
-                              <tr
-                                className="data-table__row--clickable"
-                                onClick={() => toggleFinding(f.id)}
-                              >
-                                <td>
-                                  <SeverityBadge severity={f.severity} />
-                                </td>
-                                <td>{f.category}</td>
-                                <td>{f.title}</td>
-                                <td>{f.phase}</td>
-                              </tr>
-                              {expandedFindings.has(f.id) && (
-                                <tr className="finding-detail-row">
-                                  <td colSpan={4}>
-                                    <div className="finding-detail">
-                                      <div className="finding-description">
-                                        <strong>Description</strong>
-                                        <p>{f.description}</p>
-                                      </div>
-                                      <div className="finding-evidence">
-                                        <strong>Evidence</strong>
-                                        <blockquote>{f.evidence}</blockquote>
-                                      </div>
-                                      {f.suggestion && (
-                                        <div className="finding-suggestion">
-                                          <strong>Suggestion</strong>
-                                          <p>{f.suggestion}</p>
-                                        </div>
-                                      )}
-                                      {f.file_path && (
-                                        <div className="finding-file">
-                                          <strong>File:</strong>{' '}
-                                          <code>{f.file_path}</code>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </Fragment>
-                          ))
-                          )}
-                        </tbody>
-                      </table>
-                )}
-              </div>
+              <FindingsSection
+                findings={personaFindings}
+                findingsPending={findingsPending}
+                emptyMessage={
+                  findingsPending
+                    ? 'Findings will appear here when the run completes.'
+                    : 'No findings for this persona.'
+                }
+                exportFilename={`${sanitizeFilename(run.name)}-${sanitizeFilename(personaName(activePersona.persona_id))}-findings.csv`}
+              />
             </div>
+            )
           )}
         </section>
       )}
