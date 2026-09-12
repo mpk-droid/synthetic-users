@@ -128,6 +128,10 @@ export function getRunDetail(runId: string): Promise<RunDetailResponse> {
   return request(`/api/runs/${runId}`);
 }
 
+export function cancelRun(runId: string): Promise<{ status: string }> {
+  return request(`/api/runs/${runId}/cancel`, { method: 'POST' });
+}
+
 export function deleteRun(runId: string): Promise<void> {
   return request(`/api/runs/${runId}`, { method: 'DELETE' });
 }

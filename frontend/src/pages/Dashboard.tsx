@@ -1,13 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { deleteRun, getRuns } from '../api/client';
+import { getRuns } from '../api/client';
+import RunActions from '../components/RunActions';
 import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
 import { formatElapsed, formatRunDateTime } from '../utils/datetime';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const runsQuery = useQuery({
     queryKey: ['runs'],
@@ -15,24 +15,7 @@ export default function Dashboard() {
     refetchInterval: 10000,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: deleteRun,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['runs'] });
-    },
-  });
-
   const runs = runsQuery.data ?? [];
-
-  const handleDelete = (runId: string, runName: string) => {
-    if (
-      window.confirm(
-        `Delete run "${runName}"? This permanently removes the run and its findings.`,
-      )
-    ) {
-      deleteMutation.mutate(runId);
-    }
-  };
 
   return (
     <div className="page">
@@ -45,9 +28,6 @@ export default function Dashboard() {
 
       {runsQuery.isLoading && <p className="loading">Loading runs...</p>}
       {runsQuery.error && <p className="error">Failed to load runs.</p>}
-      {deleteMutation.error && (
-        <p className="error">Failed to delete run: {(deleteMutation.error as Error).message}</p>
-      )}
 
       {runs.length === 0 && !runsQuery.isLoading && (
         <p className="empty-state">No runs yet. Create one to get started.</p>
@@ -89,20 +69,8 @@ export default function Dashboard() {
                     run.status === 'pending' || run.status === 'running',
                   )}
                 </td>
-                <td className="data-table__actions">
-                  <button
-                    type="button"
-                    className="btn btn--icon btn--danger-text data-table__delete"
-                    title={`Delete ${run.name}`}
-                    aria-label={`Delete ${run.name}`}
-                    disabled={deleteMutation.isPending}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(run.id, run.name);
-                    }}
-                  >
-                    ×
-                  </button>
+                <td onClick={(e) => e.stopPropagation()}>
+                  <RunActions runId={run.id} runName={run.name} status={run.status} />
                 </td>
               </tr>
             ))}

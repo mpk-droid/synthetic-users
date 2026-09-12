@@ -8,6 +8,7 @@ const statusStyles: Record<string, { bg: string; color: string }> = {
   completed: { bg: '#dcfce7', color: '#15803d' },
   blocked: { bg: '#fef3c7', color: '#a16207' },
   failed: { bg: '#fee2e2', color: '#b91c1c' },
+  cancelled: { bg: '#f3f4f6', color: '#4b5563' },
 };
 
 export default function StatusBadge({ status }: StatusBadgeProps) {

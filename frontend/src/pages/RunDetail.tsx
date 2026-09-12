@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getRunDetail, getPersonas } from '../api/client';
 import type {
@@ -12,6 +12,7 @@ import type {
 import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
 import SeverityBadge from '../components/SeverityBadge';
+import RunActions from '../components/RunActions';
 import { IconExport } from '../components/NavIcons';
 import { formatElapsed } from '../utils/datetime';
 import { exportFindingsToCsv, sanitizeFilename } from '../utils/exportFindingsCsv';
@@ -522,9 +523,6 @@ function PhaseProgress({
         )}
       </div>
 
-      {isErrored && persona.blocked_reason && (
-        <p className="run-progress-meta run-progress-meta--error">{persona.blocked_reason}</p>
-      )}
     </div>
   );
 }
@@ -765,6 +763,7 @@ type PersonaTab = 'overview' | number;
 
 
 export default function RunDetail() {
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
   const { data: run, isLoading, error } = useQuery({
@@ -817,8 +816,17 @@ export default function RunDetail() {
     <div className="page">
       <div className="run-header">
         <div className="run-header-top">
-          <ScoreBadge score={run.score} size="large" />
-          <StatusBadge status={run.status} />
+          <div className="run-header-badges">
+            <ScoreBadge score={run.score} size="large" />
+            <StatusBadge status={run.status} />
+          </div>
+          <RunActions
+            runId={run.id}
+            runName={run.name}
+            status={run.status}
+            variant="header"
+            onDeleted={() => navigate('/')}
+          />
         </div>
         {(run.error || run.score_rationale) && (
           <p className={`run-rationale${run.error ? ' run-rationale--error' : ''}`}>

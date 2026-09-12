@@ -27,6 +27,39 @@ AGENT_STARTUP_TIMEOUT = 120
 AGENT_RUN_TIMEOUT = 1800
 
 _run_trackers: dict[str, dict] = {}
+_run_cancel_flags: set[str] = set()
+_active_run_cleanups: dict[str, tuple["AgentOrchestrator", list[str]]] = {}
+
+
+class RunCancelledError(Exception):
+    """Raised when a run is cancelled while agents are active."""
+
+
+def is_run_cancelled(run_id: str | None) -> bool:
+    return run_id is not None and run_id in _run_cancel_flags
+
+
+def request_run_cancel(run_id: str) -> None:
+    _run_cancel_flags.add(run_id)
+    tracker = _run_trackers.get(run_id)
+    if tracker:
+        tracker["cancelled"] = True
+        tracker["event"].set()
+
+
+def clear_run_cancel(run_id: str) -> None:
+    _run_cancel_flags.discard(run_id)
+
+
+async def stop_active_run(run_id: str) -> bool:
+    """Signal cancellation and tear down any active agent containers."""
+    request_run_cancel(run_id)
+    entry = _active_run_cleanups.pop(run_id, None)
+    if not entry:
+        return False
+    orchestrator, hosts = entry
+    await orchestrator._cleanup(hosts)
+    return True
 
 
 def notify_agent_done(run_id: str) -> None:
@@ -72,12 +105,23 @@ class AgentOrchestrator(abc.ABC):
         """Start one agent per persona, wait for all to finish."""
         agent_hosts = []
         try:
+            if is_run_cancelled(run_id):
+                raise RunCancelledError(f"Run {run_id} cancelled")
+
             agent_hosts = await self._start_agents(personas)
+            if run_id:
+                _active_run_cleanups[run_id] = (self, agent_hosts)
+
+            if is_run_cancelled(run_id):
+                raise RunCancelledError(f"Run {run_id} cancelled")
+
             await self._wait_for_healthy(agent_hosts)
 
             orchestrator_url = self._build_orchestrator_url(run_id)
 
             for persona, host in zip(personas, agent_hosts):
+                if is_run_cancelled(run_id):
+                    raise RunCancelledError(f"Run {run_id} cancelled")
                 await self._dispatch_run(
                     host=host,
                     persona=persona,
@@ -93,6 +137,9 @@ class AgentOrchestrator(abc.ABC):
                 persona_count=len(personas),
             )
         finally:
+            if run_id:
+                _active_run_cleanups.pop(run_id, None)
+                clear_run_cancel(run_id)
             await self._cleanup(agent_hosts)
 
     def _build_orchestrator_url(self, run_id: str | None) -> str:
@@ -198,13 +245,25 @@ class AgentOrchestrator(abc.ABC):
         }
         _run_trackers[run_id] = tracker
 
+        started = asyncio.get_event_loop().time()
         try:
-            await asyncio.wait_for(tracker["event"].wait(), timeout=timeout)
-        except asyncio.TimeoutError:
-            raise RuntimeError(
-                f"Only {tracker['received']}/{persona_count} agents finished "
-                f"within {timeout}s for run {run_id}"
-            ) from None
+            while True:
+                if is_run_cancelled(run_id) or tracker.get("cancelled"):
+                    raise RunCancelledError(f"Run {run_id} cancelled")
+                elapsed = asyncio.get_event_loop().time() - started
+                remaining = max(timeout - elapsed, 0)
+                if remaining == 0:
+                    raise RuntimeError(
+                        f"Only {tracker['received']}/{persona_count} agents finished "
+                        f"within {timeout}s for run {run_id}"
+                    )
+                try:
+                    await asyncio.wait_for(tracker["event"].wait(), timeout=min(1.0, remaining))
+                except asyncio.TimeoutError:
+                    continue
+                if is_run_cancelled(run_id) or tracker.get("cancelled"):
+                    raise RunCancelledError(f"Run {run_id} cancelled")
+                break
         finally:
             _run_trackers.pop(run_id, None)
 

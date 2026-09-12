@@ -342,26 +342,42 @@ async def _run_engine(run_id: uuid.UUID) -> None:
         for rp in run.run_personas:
             run_persona_map[str(rp.id)] = str(rp.id)
 
+        if run.status == RunStatus.cancelled:
+            return
+
+        run_model = run.model
+        run_config = run.config or {}
+        run_repo_url = run.repo_url
+
         run.status = RunStatus.running
         run.started_at = datetime.now(timezone.utc)
         await db.commit()
+
+    async with async_session() as pre_db:
+        pre_run = await pre_db.get(Run, run_id)
+        if not pre_run or pre_run.status == RunStatus.cancelled:
+            return
+
+    from app.engine.orchestrator import RunCancelledError
 
     try:
         await execute_orchestrated_run(
             run_id=str(run_id),
             personas=personas,
             phases=phases,
-            model=run.model,
-            config=run.config or {},
-            repo_url=run.repo_url,
+            model=run_model,
+            config=run_config,
+            repo_url=run_repo_url,
             run_persona_map=run_persona_map,
         )
+    except RunCancelledError:
+        logger.info("Run %s cancelled during orchestration", run_id)
     except Exception as e:
         logger.exception("Run %s failed", run_id)
         async with async_session() as err_db:
             err_result = await err_db.execute(select(Run).where(Run.id == run_id))
             err_run = err_result.scalar_one_or_none()
-            if err_run:
+            if err_run and err_run.status != RunStatus.cancelled:
                 err_run.status = RunStatus.failed
                 err_run.error = str(e)
                 await err_db.commit()
@@ -417,6 +433,38 @@ async def create_run(
     background_tasks.add_task(_run_engine, run.id)
 
     return run
+
+
+
+@router.post("/{run_id}/cancel")
+async def cancel_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Stop an in-flight run and mark it cancelled."""
+    result = await db.execute(
+        select(Run).options(selectinload(Run.run_personas)).where(Run.id == run_id)
+    )
+    run = result.scalar_one_or_none()
+    if not run:
+        raise HTTPException(404, "Run not found")
+    if run.status not in (RunStatus.pending, RunStatus.running):
+        raise HTTPException(400, "Only pending or running runs can be cancelled")
+
+    from app.engine.orchestrator import stop_active_run
+
+    await stop_active_run(str(run_id))
+
+    run.status = RunStatus.cancelled
+    run.completed_at = datetime.now(timezone.utc)
+    run.error = "Run cancelled by user"
+    for rp in run.run_personas:
+        if rp.status in (RunPersonaStatus.pending, RunPersonaStatus.running):
+            rp.status = RunPersonaStatus.blocked
+            rp.blocked_reason = "Run cancelled by user"
+            if rp.current_phase:
+                rp.blocked_phase = rp.current_phase
+            rp.current_phase = None
+    await db.commit()
+    return {"status": "cancelled"}
+
 
 
 @router.delete("/{run_id}", status_code=204)

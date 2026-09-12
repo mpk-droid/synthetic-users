@@ -351,18 +351,22 @@ async def execute_orchestrated_run(
     Spins up one agent container per persona, waits for all to finish
     (agents POST results to orchestrator endpoints), then scores.
     """
-    from app.engine.orchestrator import create_orchestrator
+    from app.engine.orchestrator import RunCancelledError, create_orchestrator
 
     orchestrator = create_orchestrator(config=config)
 
-    await orchestrator.run_all(
-        personas=personas,
-        phases=phases,
-        model=model,
-        repo_url=repo_url,
-        run_persona_map=run_persona_map,
-        run_id=run_id,
-    )
+    try:
+        await orchestrator.run_all(
+            personas=personas,
+            phases=phases,
+            model=model,
+            repo_url=repo_url,
+            run_persona_map=run_persona_map,
+            run_id=run_id,
+        )
+    except RunCancelledError:
+        logger.info("Run %s orchestration cancelled", run_id)
+        return
 
     await finalize_run_if_complete(run_id)
 
