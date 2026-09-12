@@ -824,6 +824,7 @@ export default function RunDetail() {
             runId={run.id}
             runName={run.name}
             status={run.status}
+            personaStatuses={run.personas.map((persona) => persona.status)}
             variant="header"
             onDeleted={() => navigate('/')}
           />

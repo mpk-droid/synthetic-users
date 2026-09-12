@@ -445,8 +445,12 @@ async def cancel_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     run = result.scalar_one_or_none()
     if not run:
         raise HTTPException(404, "Run not found")
-    if run.status not in (RunStatus.pending, RunStatus.running):
-        raise HTTPException(400, "Only pending or running runs can be cancelled")
+    active_personas = any(
+        rp.status in (RunPersonaStatus.pending, RunPersonaStatus.running)
+        for rp in run.run_personas
+    )
+    if run.status not in (RunStatus.pending, RunStatus.running) and not active_personas:
+        raise HTTPException(400, "Only active runs can be stopped")
 
     from app.engine.orchestrator import stop_active_run
 

@@ -4,10 +4,21 @@ import { IconClose, IconTrash } from './NavIcons';
 
 const ACTIVE_STATUSES = new Set(['pending', 'running']);
 
+function isStoppable(runStatus: string, personaStatuses?: string[]): boolean {
+  if (ACTIVE_STATUSES.has(runStatus.toLowerCase())) {
+    return true;
+  }
+  return (
+    personaStatuses?.some((status) => ACTIVE_STATUSES.has(status.toLowerCase())) ??
+    false
+  );
+}
+
 type RunActionsProps = {
   runId: string;
   runName: string;
   status: string;
+  personaStatuses?: string[];
   variant?: 'table' | 'header';
   onDeleted?: () => void;
 };
@@ -16,11 +27,12 @@ export default function RunActions({
   runId,
   runName,
   status,
+  personaStatuses,
   variant = 'table',
   onDeleted,
 }: RunActionsProps) {
   const queryClient = useQueryClient();
-  const canCancel = ACTIVE_STATUSES.has(status);
+  const canStop = isStoppable(status, personaStatuses);
   const wrapperClass =
     variant === 'header' ? 'run-header-actions' : 'data-table__actions';
 
@@ -40,10 +52,10 @@ export default function RunActions({
     },
   });
 
-  const handleCancel = () => {
+  const handleStop = () => {
     if (
       window.confirm(
-        `Cancel run "${runName}"? This stops all persona activity immediately.`,
+        `Stop run "${runName}"? This stops all persona activity immediately.`,
       )
     ) {
       cancelMutation.mutate(runId);
@@ -61,21 +73,22 @@ export default function RunActions({
   };
 
   const pending = cancelMutation.isPending || deleteMutation.isPending;
+  const stopTitle = canStop
+    ? `Stop ${runName}`
+    : `Stop unavailable while run is ${status}`;
 
   return (
     <div className={wrapperClass}>
-      {canCancel && (
-        <button
-          type="button"
-          className="btn btn--icon btn--warning-text run-action-btn"
-          title={`Cancel ${runName}`}
-          aria-label={`Cancel ${runName}`}
-          disabled={pending}
-          onClick={handleCancel}
-        >
-          <IconClose className="run-action-btn__icon" />
-        </button>
-      )}
+      <button
+        type="button"
+        className="btn btn--icon run-action-btn run-action-btn--stop"
+        title={stopTitle}
+        aria-label={stopTitle}
+        disabled={!canStop || pending}
+        onClick={handleStop}
+      >
+        <IconClose className="run-action-btn__icon" />
+      </button>
       <button
         type="button"
         className="btn btn--icon btn--danger-text run-action-btn"

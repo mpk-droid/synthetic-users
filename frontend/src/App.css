@@ -782,6 +782,26 @@ h1, h2, h3, h4 {
   height: 16px;
 }
 
+.run-action-btn--stop {
+  border: 1px solid #f59e0b;
+  background: #f59e0b;
+  color: var(--color-white);
+}
+
+.run-action-btn--stop:hover:not(:disabled) {
+  background: #d97706;
+  border-color: #d97706;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.35);
+}
+
+.run-action-btn--stop:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: var(--color-gray-200);
+  border-color: var(--color-gray-300);
+  color: var(--color-gray-500);
+}
+
 .run-header-actions {
   display: inline-flex;
   align-items: center;
