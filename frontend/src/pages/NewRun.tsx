@@ -1,8 +1,10 @@
+[lean-ctx] no compression applied (mode=cognitive): output was not smaller than the file — returning full content (1458 tok)
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getPersonas, getJourneys, getEnvironments, createRun } from '../api/client';
 import type { PersonaEnvironmentSpec } from '../types';
+import { personaShortName } from '../utils/personaDisplay';
 
 export default function NewRun() {
   const navigate = useNavigate();
