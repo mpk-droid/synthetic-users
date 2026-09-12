@@ -52,7 +52,7 @@ class Run(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("journeys.id")
     )
     model: Mapped[str] = mapped_column(
-        String(255), default="nvidia/nemotron-3-super-120b-a12b"
+        String(255), default="nvidia/nemotron-3-ultra-550b-a55b"
     )
     config: Mapped[dict] = mapped_column(JSONB, default=dict)
     status: Mapped[RunStatus] = mapped_column(

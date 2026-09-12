@@ -91,7 +91,8 @@ In Cursor, use **Terminal → Run Task** (`Cmd+Shift+P` → "Tasks: Run Task") f
 | `ANTHROPIC_API_KEY` | | Direct Anthropic API key (if not using Vertex) |
 | `NVIDIA_API_KEY` | One of these | NVIDIA NIM API key ([build.nvidia.com](https://build.nvidia.com/settings)) |
 | `NVIDIA_NIM_BASE_URL` | No | Default `https://integrate.api.nvidia.com/v1` |
-| `NVIDIA_NIM_MODEL` | No | Default `nvidia/nemotron-3-super-120b-a12b` |
+| `NVIDIA_NIM_MODEL` | No | Default `nvidia/nemotron-3-ultra-550b-a55b` |
+| `NVIDIA_NIM_FALLBACK_MODEL` | No | Default `nvidia/nemotron-3-super-120b-a12b` (after primary 5xx retries) |
 | `NVIDIA_NIM_ENABLE_THINKING` | No | Default `false` (reasoning mode can 500 on Ultra) |
 | `SU_ROLE` | No | `orchestrator` (default) or `agent` |
 | `SU_AGENT_IMAGE` | No | Docker image for agent containers (default: `synthetic-users:latest`) |

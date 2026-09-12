@@ -119,6 +119,7 @@ class AgentOrchestrator(abc.ABC):
             "NVIDIA_API_KEY",
             "NVIDIA_NIM_BASE_URL",
             "NVIDIA_NIM_MODEL",
+            "NVIDIA_NIM_FALLBACK_MODEL",
             "NVIDIA_NIM_ENABLE_THINKING",
         ):
             val = os.environ.get(key, "")
@@ -382,6 +383,16 @@ class KubernetesOrchestrator(AgentOrchestrator):
                     secret_key_ref=k8s_client.V1SecretKeySelector(
                         name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
                         key="NVIDIA_NIM_MODEL",
+                        optional=True,
+                    )
+                ),
+            ),
+            k8s_client.V1EnvVar(
+                name="NVIDIA_NIM_FALLBACK_MODEL",
+                value_from=k8s_client.V1EnvVarSource(
+                    secret_key_ref=k8s_client.V1SecretKeySelector(
+                        name=os.environ.get("SU_K8S_SECRET", "synthetic-users"),
+                        key="NVIDIA_NIM_FALLBACK_MODEL",
                         optional=True,
                     )
                 ),

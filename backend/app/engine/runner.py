@@ -22,6 +22,7 @@ def _build_client(config: dict):
         from app.engine.nvidia_nim import (
             DEFAULT_BASE_URL,
             DEFAULT_MODEL,
+            FALLBACK_MODEL,
             NvidiaNimClient,
         )
 
@@ -31,16 +32,27 @@ def _build_client(config: dict):
         default_model = config.get("nvidia_nim_model") or os.environ.get(
             "NVIDIA_NIM_MODEL", DEFAULT_MODEL
         )
+        fallback_model = config.get("nvidia_nim_fallback_model")
+        if fallback_model is None:
+            fallback_model = os.environ.get(
+                "NVIDIA_NIM_FALLBACK_MODEL", FALLBACK_MODEL
+            )
         enable_thinking = config.get("nvidia_nim_enable_thinking")
         if enable_thinking is None:
             enable_thinking = os.environ.get(
                 "NVIDIA_NIM_ENABLE_THINKING", "false"
             ).lower() in ("1", "true", "yes")
-        logger.info("Using NVIDIA NIM (%s, model=%s)", base_url, default_model)
+        logger.info(
+            "Using NVIDIA NIM (%s, model=%s, fallback=%s)",
+            base_url,
+            default_model,
+            fallback_model,
+        )
         return NvidiaNimClient(
             api_key=nvidia_api_key,
             base_url=base_url,
             default_model=default_model,
+            fallback_model=fallback_model,
             enable_thinking=enable_thinking,
         )
 

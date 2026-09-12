@@ -28,7 +28,7 @@ healthCheck:
 
 env:
   SU_ROLE: orchestrator
-  MODEL: nvidia/nemotron-3-super-120b-a12b
+  MODEL: nvidia/nemotron-3-ultra-550b-a55b
 
 agent:
   image:
@@ -61,5 +61,6 @@ secrets:
   modelsCorpUrl: ""
   nvidiaApiKey: ""
   nvidiaNimBaseUrl: "https://integrate.api.nvidia.com/v1"
-  nvidiaNimModel: "nvidia/nemotron-3-super-120b-a12b"
+  nvidiaNimModel: "nvidia/nemotron-3-ultra-550b-a55b"
+  nvidiaNimFallbackModel: "nvidia/nemotron-3-super-120b-a12b"
   nvidiaNimEnableThinking: "false"

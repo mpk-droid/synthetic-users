@@ -15,7 +15,8 @@ import httpx
 logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
-DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b"
+DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
+FALLBACK_MODEL = "nvidia/nemotron-3-super-120b-a12b"
 MAX_RETRIES = 5
 
 
@@ -149,11 +150,19 @@ def _resolve_model(model: str, default_model: str) -> str:
     return model
 
 
+def _models_to_try(primary: str, fallback: str | None) -> list[str]:
+    models = [primary]
+    if fallback and fallback != primary:
+        models.append(fallback)
+    return models
+
+
 @dataclass
 class NvidiaNimMessages:
     base_url: str
     api_key: str
     default_model: str = DEFAULT_MODEL
+    fallback_model: str | None = FALLBACK_MODEL
     enable_thinking: bool = False
     _client: httpx.AsyncClient = field(init=False, repr=False)
 
@@ -172,7 +181,6 @@ class NvidiaNimMessages:
         resolved_model = _resolve_model(model, self.default_model)
         openai_tools = _anthropic_tools_to_openai(tools)
         body: dict[str, Any] = {
-            "model": resolved_model,
             "messages": _anthropic_messages_to_openai(messages, system),
             "max_tokens": max_tokens,
             "temperature": 1.0,
@@ -192,28 +200,53 @@ class NvidiaNimMessages:
             "Content-Type": "application/json",
         }
 
+        models = _models_to_try(resolved_model, self.fallback_model)
         last_error: Exception | None = None
-        for attempt in range(MAX_RETRIES):
-            response = await self._client.post(url, headers=headers, json=body)
-            if response.status_code == 429:
-                retry_after = int(response.headers.get("Retry-After", "15"))
-                logger.warning(
-                    "NVIDIA NIM rate limited (429); retrying in %ss (%s/%s)",
-                    retry_after,
-                    attempt + 1,
-                    MAX_RETRIES,
-                )
-                await asyncio.sleep(retry_after)
-                continue
-            try:
-                response.raise_for_status()
-                return _openai_response_to_anthropic(response.json())
-            except httpx.HTTPStatusError as exc:
-                last_error = exc
-                if response.status_code >= 500 and attempt < MAX_RETRIES - 1:
-                    await asyncio.sleep(2**attempt)
+
+        for model_index, current_model in enumerate(models):
+            body["model"] = current_model
+            for attempt in range(MAX_RETRIES):
+                response = await self._client.post(url, headers=headers, json=body)
+                if response.status_code == 429:
+                    retry_after = int(response.headers.get("Retry-After", "15"))
+                    logger.warning(
+                        "NVIDIA NIM rate limited (429) on %s; retrying in %ss (%s/%s)",
+                        current_model,
+                        retry_after,
+                        attempt + 1,
+                        MAX_RETRIES,
+                    )
+                    await asyncio.sleep(retry_after)
                     continue
-                raise
+                try:
+                    response.raise_for_status()
+                    if current_model != resolved_model:
+                        logger.warning(
+                            "NVIDIA NIM request succeeded on fallback model %s "
+                            "(primary was %s)",
+                            current_model,
+                            resolved_model,
+                        )
+                    return _openai_response_to_anthropic(response.json())
+                except httpx.HTTPStatusError as exc:
+                    last_error = exc
+                    if response.status_code >= 500 and attempt < MAX_RETRIES - 1:
+                        await asyncio.sleep(2**attempt)
+                        continue
+                    if (
+                        response.status_code >= 500
+                        and model_index < len(models) - 1
+                    ):
+                        logger.warning(
+                            "NVIDIA NIM model %s failed with HTTP %s after %s "
+                            "retries; falling back to %s",
+                            current_model,
+                            response.status_code,
+                            MAX_RETRIES,
+                            models[model_index + 1],
+                        )
+                        break
+                    raise
 
         if last_error:
             raise last_error
@@ -230,6 +263,7 @@ class NvidiaNimClient:
     api_key: str
     base_url: str = DEFAULT_BASE_URL
     default_model: str = DEFAULT_MODEL
+    fallback_model: str | None = FALLBACK_MODEL
     enable_thinking: bool = False
     messages: NvidiaNimMessages = field(init=False)
 
@@ -238,5 +272,6 @@ class NvidiaNimClient:
             base_url=self.base_url,
             api_key=self.api_key,
             default_model=self.default_model,
+            fallback_model=self.fallback_model,
             enable_thinking=self.enable_thinking,
         )
