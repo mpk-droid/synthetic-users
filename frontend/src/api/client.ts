@@ -142,7 +142,6 @@ export function generatePrompt(data: {
   identity: string;
   perspective: string;
   constraints: string;
-  expertise_level: string;
 }): Promise<{ system_prompt: string }> {
   return request('/api/prompts/generate', {
     method: 'POST',

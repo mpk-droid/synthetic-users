@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getRunDetail, getPersonas } from '../api/client';
+import { getJourneys, getRunDetail, getPersonas } from '../api/client';
 import type {
   JourneyPhaseRef,
   PhaseTimes,
@@ -336,9 +336,11 @@ function PhaseActivityTerminal({
 function PhaseProgress({
   phases,
   persona,
+  journeyName,
 }: {
   phases: JourneyPhaseRef[];
   persona: RunPersonaDetail;
+  journeyName?: string;
 }) {
   const [selectedPhaseName, setSelectedPhaseName] = useState(() =>
     defaultSelectedPhase(phases, persona),
@@ -444,7 +446,7 @@ function PhaseProgress({
                 : isErrored && persona.blocked_phase
                   ? `Stopped at phase ${phaseNum} of ${phases.length}: ${persona.blocked_phase}`
                   : persona.status === 'completed'
-                    ? `Completed all ${phases.length} phases`
+                    ? `Completed all ${phases.length} phases${journeyName ? `: ${journeyName}` : ''}`
                     : `Phase progress (${phaseNum} of ${phases.length})`}
             </span>
           </div>
@@ -782,6 +784,11 @@ export default function RunDetail() {
     queryFn: getPersonas,
   });
 
+  const { data: journeys } = useQuery({
+    queryKey: ['journeys'],
+    queryFn: getJourneys,
+  });
+
   const [activeTab, setActiveTab] = useState<PersonaTab>(0);
 
   if (isLoading) return <p className="loading">Loading run details...</p>;
@@ -790,6 +797,9 @@ export default function RunDetail() {
 
   const personaName = (personaId: string) =>
     allPersonas?.find((p) => p.id === personaId)?.name || personaId.slice(0, 8);
+
+  const journeyName =
+    journeys?.find((journey) => journey.id === run.journey_id)?.name ?? null;
 
   const isOverview = activeTab === 'overview';
   const activePersona: RunPersonaDetail | undefined =
@@ -835,6 +845,12 @@ export default function RunDetail() {
           </p>
         )}
         <div className="run-meta">
+          <span className="run-meta__repo">
+            Repository:{' '}
+            <a href={run.repo_url} target="_blank" rel="noopener noreferrer">
+              {run.repo_url}
+            </a>
+          </span>
           {run.started_at && (
             <span
               className={`run-meta__elapsed${isRunActive ? ' run-meta__elapsed--active' : ''}`}
@@ -937,7 +953,7 @@ export default function RunDetail() {
                 )}
 
                 {run.journey_phases?.length > 0 && (
-                  <PhaseProgress phases={run.journey_phases} persona={activePersona} />
+                  <PhaseProgress phases={run.journey_phases} persona={activePersona} journeyName={journeyName ?? undefined} />
                 )}
               </section>
 

@@ -4,7 +4,7 @@ export interface PersonaResponse {
   identity: string;
   perspective: string;
   constraints: string;
-  expertise_level: string;
+  role_label: string;
   system_prompt: string | null;
   prompt_approved: boolean;
   created_at: string;
@@ -16,7 +16,7 @@ export interface PersonaCreate {
   identity: string;
   perspective: string;
   constraints: string;
-  expertise_level: string;
+  role_label: string;
 }
 
 export interface PersonaUpdate {
@@ -24,7 +24,8 @@ export interface PersonaUpdate {
   identity?: string;
   perspective?: string;
   constraints?: string;
-  expertise_level?: string;
+  role_label?: string;
+  system_prompt?: string;
 }
 
 export interface JourneyPhaseResponse {
@@ -84,7 +85,7 @@ export interface EnvironmentCreate {
 
 export interface PersonaEnvironmentSpec {
   persona_id: string;
-  environment_ids: string[];
+  environment_id: string | null;
 }
 
 export interface RunCreate {

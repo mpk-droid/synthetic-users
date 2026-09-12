@@ -14,6 +14,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.db.session import async_session, get_db
 from app.engine.runner import execute_orchestrated_run
+from app.models.environment import Environment
 from app.models.finding import Finding as FindingModel
 from app.models.finding import GlobalFinding, normalize_severity
 from app.models.journey import Journey
@@ -284,7 +285,12 @@ async def _run_engine(run_id: uuid.UUID) -> None:
 
         env_ids = []
         for pe in run.persona_environments:
-            env_ids.extend(pe.get("environment_ids", []))
+            env_id = pe.get("environment_id")
+            if env_id is None:
+                legacy_ids = pe.get("environment_ids") or []
+                env_id = legacy_ids[0] if legacy_ids else None
+            if env_id:
+                env_ids.append(env_id)
         env_map: dict[str, Environment] = {}
         if env_ids:
             env_result = await db.execute(
@@ -417,15 +423,26 @@ async def create_run(
     db.add(run)
     await db.flush()
 
-    for pe_spec in data.persona_environments:
-        env_ids = pe_spec.environment_ids or [None]
-        for env_id in env_ids:
-            rp = RunPersona(
-                run_id=run.id,
-                persona_id=pe_spec.persona_id,
-                environment_id=env_id,
+    if data.persona_environments:
+        env_ids = {
+            pe.environment_id for pe in data.persona_environments if pe.environment_id
+        }
+        if env_ids:
+            env_result = await db.execute(
+                select(Environment).where(Environment.id.in_(env_ids))
             )
-            db.add(rp)
+            found = {env.id for env in env_result.scalars().all()}
+            missing = env_ids - found
+            if missing:
+                raise HTTPException(400, f"Unknown environment id(s): {missing}")
+
+    for pe_spec in data.persona_environments:
+        rp = RunPersona(
+            run_id=run.id,
+            persona_id=pe_spec.persona_id,
+            environment_id=pe_spec.environment_id,
+        )
+        db.add(rp)
 
     await db.commit()
     await db.refresh(run)

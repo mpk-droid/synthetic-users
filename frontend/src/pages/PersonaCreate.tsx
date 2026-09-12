@@ -9,10 +9,10 @@ export default function PersonaCreate() {
 
   const [form, setForm] = useState({
     name: '',
+    role_label: '',
     identity: '',
     perspective: '',
     constraints: '',
-    expertise_level: 'intermediate',
   });
 
   const [previewPrompt, setPreviewPrompt] = useState<string | null>(null);
@@ -31,7 +31,6 @@ export default function PersonaCreate() {
         identity: form.identity,
         perspective: form.perspective,
         constraints: form.constraints,
-        expertise_level: form.expertise_level,
       }),
     onSuccess: (data) => {
       setPreviewPrompt(data.system_prompt);
@@ -39,7 +38,7 @@ export default function PersonaCreate() {
   });
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
@@ -64,9 +63,23 @@ export default function PersonaCreate() {
             type="text"
             value={form.name}
             onChange={handleChange}
-            placeholder="e.g., Senior DevOps Engineer"
+            placeholder="e.g., Sam — Junior Backend Dev"
             required
           />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="role_label">Role Label</label>
+          <input
+            id="role_label"
+            name="role_label"
+            type="text"
+            value={form.role_label}
+            onChange={handleChange}
+            placeholder="e.g., Junior dev"
+            required
+          />
+          <p className="form-hint">Short label shown on persona cards.</p>
         </div>
 
         <div className="form-group">
@@ -77,7 +90,7 @@ export default function PersonaCreate() {
             rows={4}
             value={form.identity}
             onChange={handleChange}
-            placeholder="Who is this persona? Background, role, experience..."
+            placeholder="Role, years of experience, time at company, proficiencies..."
             required
           />
         </div>
@@ -108,25 +121,11 @@ export default function PersonaCreate() {
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="expertise_level">Expertise Level</label>
-          <select
-            id="expertise_level"
-            name="expertise_level"
-            value={form.expertise_level}
-            onChange={handleChange}
-          >
-            <option value="novice">Novice</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="expert">Expert</option>
-          </select>
-        </div>
-
         <div className="form-actions">
           <button
             type="submit"
             className="btn btn--primary"
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || !form.role_label}
           >
             {createMutation.isPending ? 'Creating...' : 'Create Persona'}
           </button>

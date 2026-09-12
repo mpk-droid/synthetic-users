@@ -29,38 +29,28 @@ export default function NewRun() {
     model: 'nvidia/nemotron-3-ultra-550b-a55b',
   });
 
-  const [personaEnvs, setPersonaEnvs] = useState<Record<string, Set<string>>>({});
+  const [personaEnvs, setPersonaEnvs] = useState<Record<string, string>>({});
 
   const togglePersona = (personaId: string) => {
     setPersonaEnvs((prev) => {
       const next = { ...prev };
-      if (next[personaId]) {
+      if (personaId in next) {
         delete next[personaId];
       } else {
-        next[personaId] = new Set<string>();
+        next[personaId] = '';
       }
       return next;
     });
   };
 
-  const toggleEnvForPersona = (personaId: string, envId: string) => {
-    setPersonaEnvs((prev) => {
-      const next = { ...prev };
-      const envs = new Set(next[personaId] || []);
-      if (envs.has(envId)) {
-        envs.delete(envId);
-      } else {
-        envs.add(envId);
-      }
-      next[personaId] = envs;
-      return next;
-    });
+  const setPersonaEnvironment = (personaId: string, environmentId: string) => {
+    setPersonaEnvs((prev) => ({ ...prev, [personaId]: environmentId }));
   };
 
   const buildPersonaEnvironments = (): PersonaEnvironmentSpec[] => {
-    return Object.entries(personaEnvs).map(([persona_id, envSet]) => ({
+    return Object.entries(personaEnvs).map(([persona_id, environment_id]) => ({
       persona_id,
-      environment_ids: Array.from(envSet),
+      environment_id: environment_id || null,
     }));
   };
 
@@ -139,23 +129,27 @@ export default function NewRun() {
           <input
             id="model"
             type="text"
-            placeholder="nvidia/nemotron-3-ultra-550b-a55b"
             value={form.model}
-            onChange={(e) => setForm((p) => ({ ...p, model: e.target.value }))}
+            disabled
+            readOnly
+            className="input--disabled"
           />
         </div>
 
         <div className="form-group">
           <label>Personas &amp; Environments</label>
-          <p style={{ fontSize: '14px', color: '#888', marginBottom: '12px' }}>
-            Select personas, then optionally pick environments for each. No environment = default image.
+          <p className="form-hint">
+            Select personas and choose an environment for each. Default uses the built-in agent image.
           </p>
           <div className="persona-checkbox-grid">
             {personas?.map((p) => {
-              const isSelected = personaEnvs[p.id] !== undefined;
+              const isSelected = p.id in personaEnvs;
               return (
-                <div key={p.id} className={`checkbox-card ${isSelected ? 'checkbox-card--selected' : ''}`}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <div
+                  key={p.id}
+                  className={`checkbox-card ${isSelected ? 'checkbox-card--selected' : ''}`}
+                >
+                  <label className="checkbox-card-label">
                     <input
                       type="checkbox"
                       checked={isSelected}
@@ -163,35 +157,24 @@ export default function NewRun() {
                     />
                     <div className="checkbox-card-content">
                       <strong>{p.name}</strong>
-                      <span className="checkbox-card-meta">{p.expertise_level}</span>
+                      <span className="checkbox-card-meta">{p.role_label}</span>
                     </div>
                   </label>
-                  {isSelected && environments && environments.length > 0 && (
-                    <div style={{ marginTop: '8px', paddingLeft: '24px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {environments.map((env) => (
-                        <label
-                          key={env.id}
-                          style={{
-                            fontSize: '13px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            background: personaEnvs[p.id]?.has(env.id) ? '#2a3a2a' : '#252525',
-                            border: `1px solid ${personaEnvs[p.id]?.has(env.id) ? '#4a7a4a' : '#333'}`,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={personaEnvs[p.id]?.has(env.id) || false}
-                            onChange={() => toggleEnvForPersona(p.id, env.id)}
-                            style={{ width: '14px', height: '14px' }}
-                          />
-                          {env.name}
-                        </label>
-                      ))}
+                  {isSelected && (
+                    <div className="persona-env-select">
+                      <label htmlFor={`env-${p.id}`}>Environment</label>
+                      <select
+                        id={`env-${p.id}`}
+                        value={personaEnvs[p.id] ?? ''}
+                        onChange={(e) => setPersonaEnvironment(p.id, e.target.value)}
+                      >
+                        <option value="">Default</option>
+                        {environments?.map((env) => (
+                          <option key={env.id} value={env.id}>
+                            {env.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
                 </div>

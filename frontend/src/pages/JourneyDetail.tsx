@@ -9,7 +9,9 @@ import {
   updateJourneyPhase,
   deleteJourneyPhase,
 } from '../api/client';
+import { DetailExportButton } from '../components/DetailExportButton';
 import type { JourneyPhaseResponse } from '../types';
+import { exportJourneyJson } from '../utils/journeyImportExport';
 
 interface PhaseFormData {
   name: string;
@@ -122,6 +124,9 @@ export default function JourneyDetail() {
     <div className="page">
       <div className="page-header">
         <h2>{journey.name}</h2>
+        <div className="page-header-actions">
+          <DetailExportButton onClick={() => exportJourneyJson(journey)} />
+        </div>
       </div>
 
       <form

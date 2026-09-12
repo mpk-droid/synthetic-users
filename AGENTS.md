@@ -61,7 +61,7 @@ In Cursor, use **Terminal → Run Task** (`Cmd+Shift+P` → "Tasks: Run Task") f
 
 ## Architecture
 
-- **Personas** are defined by structured fields (identity, perspective, constraints, expertise_level). The service generates a system prompt from these fields. Users review and approve the prompt before it's used in runs.
+- **Personas** are defined by structured fields (identity, perspective, constraints, role_label). The service generates a system prompt from these fields. Users review and approve the prompt before it's used in runs.
 - **Journeys** are ordered sequences of phases. Each phase has instructions that the persona follows independently.
 - **Runs** evaluate a target repo. A run specifies a `repo_url`, selected personas, and a journey. The orchestrator spins up one Docker container per persona, each clones the repo and runs through all journey phases.
 - **Engine** has two modes:

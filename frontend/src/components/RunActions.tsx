@@ -4,7 +4,7 @@ import { IconClose, IconTrash } from './NavIcons';
 
 const ACTIVE_STATUSES = new Set(['pending', 'running']);
 
-function isStoppable(runStatus: string, personaStatuses?: string[]): boolean {
+function isCancellable(runStatus: string, personaStatuses?: string[]): boolean {
   if (ACTIVE_STATUSES.has(runStatus.toLowerCase())) {
     return true;
   }
@@ -32,7 +32,7 @@ export default function RunActions({
   onDeleted,
 }: RunActionsProps) {
   const queryClient = useQueryClient();
-  const canStop = isStoppable(status, personaStatuses);
+  const canCancel = isCancellable(status, personaStatuses);
   const wrapperClass =
     variant === 'header' ? 'run-header-actions' : 'data-table__actions';
 
@@ -52,10 +52,10 @@ export default function RunActions({
     },
   });
 
-  const handleStop = () => {
+  const handleCancel = () => {
     if (
       window.confirm(
-        `Stop run "${runName}"? This stops all persona activity immediately.`,
+        `Cancel run "${runName}"? This stops all persona activity immediately.`,
       )
     ) {
       cancelMutation.mutate(runId);
@@ -73,31 +73,33 @@ export default function RunActions({
   };
 
   const pending = cancelMutation.isPending || deleteMutation.isPending;
-  const stopTitle = canStop
-    ? `Stop ${runName}`
-    : `Stop unavailable while run is ${status}`;
+  const cancelTitle = canCancel
+    ? `Cancel ${runName}`
+    : `Cancel unavailable while run is ${status}`;
 
   return (
     <div className={wrapperClass}>
       <button
         type="button"
-        className="btn btn--icon run-action-btn run-action-btn--stop"
-        title={stopTitle}
-        aria-label={stopTitle}
-        disabled={!canStop || pending}
-        onClick={handleStop}
+        className="btn run-action-btn run-action-btn--cancel"
+        title={cancelTitle}
+        aria-label={cancelTitle}
+        disabled={!canCancel || pending}
+        onClick={handleCancel}
       >
         <IconClose className="run-action-btn__icon" />
+        <span>Cancel</span>
       </button>
       <button
         type="button"
-        className="btn btn--icon btn--danger-text run-action-btn"
+        className="btn run-action-btn run-action-btn--delete"
         title={`Delete ${runName}`}
         aria-label={`Delete ${runName}`}
         disabled={pending}
         onClick={handleDelete}
       >
         <IconTrash className="run-action-btn__icon" />
+        <span>Delete</span>
       </button>
     </div>
   );

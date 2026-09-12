@@ -110,10 +110,8 @@ export function IconTrash({ className }: IconProps) {
   return (
     <Icon className={className}>
       <path d="M4 7h16" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-      <path d="M6 7l1-2h10l1 2" />
-      <path d="M8 7V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      <path d="M7 7l1 12h8l1-12" />
     </Icon>
   );
 }

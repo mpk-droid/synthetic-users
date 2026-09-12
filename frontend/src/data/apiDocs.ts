@@ -43,7 +43,7 @@ export const apiSections: ApiSection[] = [
     id: 'personas',
     title: 'Personas',
     description:
-      'Synthetic users are defined by structured fields. A system prompt is generated from identity, perspective, and constraints. Prompts must be approved before use in runs.',
+      'Synthetic users are defined by structured fields (identity, perspective, constraints, role_label). A system prompt is generated from those fields. Prompts must be approved before use in runs.',
     basePath: '/api/personas',
     endpoints: [
       {
@@ -63,7 +63,7 @@ export const apiSections: ApiSection[] = [
   "identity": "string (required)",
   "perspective": "string (required)",
   "constraints": "string (required)",
-  "expertise_level": "novice | intermediate | expert (default: intermediate)"
+  "role_label": "string (required) — short role shown on persona cards, e.g. Junior dev"
 }`,
         responseBody: 'PersonaResponse',
         statusCodes: '201 — created',
@@ -80,7 +80,7 @@ export const apiSections: ApiSection[] = [
         method: 'PUT',
         path: '/api/personas/{persona_id}',
         summary: 'Update persona',
-        requestBody: 'Partial PersonaUpdate (name, identity, perspective, constraints, expertise_level, system_prompt)',
+        requestBody: 'Partial PersonaUpdate (name, role_label, identity, perspective, constraints, system_prompt)',
         responseBody: 'PersonaResponse',
         statusCodes: '200 — updated · 404 — not found',
         notes: 'Updating identity, perspective, constraints, or name resets prompt_approved to false.',
@@ -184,7 +184,7 @@ export const apiSections: ApiSection[] = [
     id: 'environments',
     title: 'Environments',
     description:
-      'Environments define container images agents can run in. Optional per persona when creating a run.',
+      'Environments define container images agents can run in. Each persona in a run selects one environment (or Default).',
     basePath: '/api/environments',
     endpoints: [
       {
@@ -250,14 +250,14 @@ export const apiSections: ApiSection[] = [
   "repo_url": "string (required) — git repository URL to evaluate",
   "journey_id": "uuid (required)",
   "persona_environments": [
-    { "persona_id": "uuid", "environment_ids": ["uuid"] }
+    { "persona_id": "uuid", "environment_id": "uuid | null" }
   ],
   "model": "string (default: nvidia/nemotron-3-ultra-550b-a55b)",
   "config": "object (optional) — LLM provider overrides, timeouts, etc."
 }`,
         responseBody: 'RunResponse',
         statusCodes: '201 — run created and started in background',
-        notes: 'An empty environment_ids array runs the persona in the default agent image.',
+        notes: 'Set environment_id to null (or omit) to use the default agent image. One environment per persona per run.',
       },
       {
         method: 'GET',

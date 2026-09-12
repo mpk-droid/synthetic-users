@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.engine.prompt_generator import generate_system_prompt
-from app.models.persona import ExpertiseLevel, Persona
+from app.models.persona import Persona
 from app.schemas.persona import PersonaCreate, PersonaResponse, PersonaUpdate
 
 router = APIRouter()
@@ -30,10 +30,10 @@ async def create_persona(data: PersonaCreate, db: AsyncSession = Depends(get_db)
     )
     persona = Persona(
         name=data.name,
+        role_label=data.role_label,
         identity=data.identity,
         perspective=data.perspective,
         constraints=data.constraints,
-        expertise_level=ExpertiseLevel(data.expertise_level),
         system_prompt=system_prompt,
     )
     db.add(persona)
@@ -61,8 +61,6 @@ async def update_persona(
         raise HTTPException(404, "Persona not found")
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
-        if key == "expertise_level" and value is not None:
-            value = ExpertiseLevel(value)
         setattr(persona, key, value)
     if any(
         k in update_data for k in ("identity", "perspective", "constraints", "name")
@@ -105,7 +103,7 @@ async def approve_prompt(persona_id: uuid.UUID, db: AsyncSession = Depends(get_d
     if not persona:
         raise HTTPException(404, "Persona not found")
     if not persona.system_prompt:
-        raise HTTPException(400, "No system prompt to approve — generate one first")
+        raise HTTPException(400, "No system prompt to approve")
     persona.prompt_approved = True
     await db.commit()
     await db.refresh(persona)

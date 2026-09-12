@@ -114,3 +114,40 @@ def migrate_drop_finding_verified(connection) -> None:
         return
 
     connection.execute(text("ALTER TABLE findings DROP COLUMN verified"))
+
+
+def migrate_persona_role_label(connection) -> None:
+    """Replace personas.expertise_level with role_label."""
+    inspector = inspect(connection)
+    if "personas" not in inspector.get_table_names():
+        return
+
+    columns = {col["name"] for col in inspector.get_columns("personas")}
+    if "role_label" not in columns:
+        connection.execute(
+            text("ALTER TABLE personas ADD COLUMN role_label VARCHAR(255)")
+        )
+        if "expertise_level" in columns:
+            connection.execute(
+                text(
+                    """
+                    UPDATE personas
+                    SET role_label = CASE expertise_level::text
+                        WHEN 'novice' THEN 'Junior dev'
+                        WHEN 'intermediate' THEN 'Mid-level dev'
+                        WHEN 'expert' THEN 'Staff engineer'
+                        ELSE 'Developer'
+                    END
+                    WHERE role_label IS NULL
+                    """
+                )
+            )
+        connection.execute(
+            text("UPDATE personas SET role_label = 'Developer' WHERE role_label IS NULL")
+        )
+        connection.execute(text("ALTER TABLE personas ALTER COLUMN role_label SET NOT NULL"))
+
+    columns = {col["name"] for col in inspector.get_columns("personas")}
+    if "expertise_level" in columns:
+        connection.execute(text("ALTER TABLE personas DROP COLUMN expertise_level"))
+        connection.execute(text("DROP TYPE IF EXISTS expertiselevel"))

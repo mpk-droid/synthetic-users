@@ -57,7 +57,7 @@ curl -X POST http://localhost:8000/api/runs \
   -d '{
     "name": "Evaluate my-service",
     "repo_url": "https://github.com/org/my-service.git",
-    "persona_environments": [{"persona_id": "<persona-uuid>", "environment_ids": []}],
+    "persona_environments": [{"persona_id": "<persona-uuid>", "environment_id": null}],
     "journey_id": "<journey-uuid>",
     "model": "nvidia/nemotron-3-ultra-550b-a55b"
   }'
@@ -161,7 +161,7 @@ curl -X POST http://localhost:8000/api/personas \
     "identity": "Staff engineer with 15 years experience evaluating SDKs",
     "perspective": "API ergonomics, error handling, integration complexity",
     "constraints": "Knows distributed systems but has not used this product before",
-    "expertise_level": "expert"
+    "role_label": "Staff engineer"
   }'
 
 # Approve the generated prompt

@@ -1,7 +1,7 @@
 """Seed built-in DX personas and journey.
 
 Creates four personas (Priya, Sam, Dana, Kai) and a five-phase journey.
-Idempotent — skips if the journey already exists.
+Idempotent — syncs built-in personas on every orchestrator start.
 """
 
 from __future__ import annotations
@@ -12,17 +12,27 @@ from sqlalchemy.orm import selectinload
 from app.db.session import async_session
 from app.engine.prompt_generator import generate_system_prompt
 from app.models.journey import Journey, JourneyPhase
-from app.models.persona import ExpertiseLevel, Persona
+from app.models.persona import Persona
 
 DX_JOURNEY_NAME = "DX Evaluation Journey"
+DX_PERSONA_NAMES = (
+    "Priya — Eng Director",
+    "Sam — Junior Backend Dev",
+    "Dana — Staff Engineer",
+    "Kai — Platform Lead",
+)
 
 _PERSONAS = [
     {
-        "name": "Priya",
+        "name": "Priya — Eng Director",
+        "legacy_names": ("Priya",),
+        "role_label": "Eng director",
         "identity": (
-            "Engineering Director at a mid-size enterprise. Solid technical "
-            "foundation but not hands-on day-to-day. Evaluates whether this "
-            "is viable for her team to adopt."
+            "Engineering Director at a mid-size enterprise. 15 years total "
+            "industry experience, 3 years at this company. Solid technical "
+            "foundation but not hands-on day-to-day. Proficient in architecture "
+            "reviews and team planning; not current on framework APIs or local "
+            "dev tooling details."
         ),
         "perspective": (
             "Value proposition clarity, whether she can hand this to her team, "
@@ -33,14 +43,16 @@ _PERSONAS = [
             "Does not know the specific agent framework internals. Relies on "
             "documentation and README to understand what this offers."
         ),
-        "expertise_level": ExpertiseLevel.intermediate,
     },
     {
-        "name": "Sam",
+        "name": "Sam — Junior Backend Dev",
+        "legacy_names": ("Sam",),
+        "role_label": "Junior dev",
         "identity": (
-            "Backend developer whose company just decided to 'add AI.' Has "
-            "built REST APIs and deployed containers but has never worked with "
-            "LLMs, agent frameworks, or the OpenAI API spec."
+            "Junior backend developer whose company just decided to 'add AI.' "
+            "2 years total experience, joined this company 2 months ago. "
+            "Proficient in REST APIs and container deployment; has never worked "
+            "with LLMs, agent frameworks, or the OpenAI API spec."
         ),
         "perspective": (
             "Follows instructions literally. Doesn't know what LangGraph, "
@@ -53,14 +65,16 @@ _PERSONAS = [
             "context. Does not know what an 'agent framework' is. Only knows "
             "backend development, REST APIs, and containers."
         ),
-        "expertise_level": ExpertiseLevel.novice,
     },
     {
-        "name": "Dana",
+        "name": "Dana — Staff Engineer",
+        "legacy_names": ("Dana",),
+        "role_label": "Staff engineer",
         "identity": (
-            "Senior engineer evaluating templates for productionizing a "
-            "proof-of-concept AI chatbot. Knows Python, Docker, K8s well, "
-            "has used the OpenAI API."
+            "Staff engineer evaluating templates for productionizing a "
+            "proof-of-concept AI chatbot. 10 years total experience, 4 years "
+            "at this company. Proficient in Python, Docker, Kubernetes, and "
+            "the OpenAI API; new to this specific agent framework."
         ),
         "perspective": (
             "Reads source code, not just docs. Tests edge cases and error "
@@ -71,13 +85,17 @@ _PERSONAS = [
             "Knows the OpenAI API but not the specific agent framework used in "
             "this template. Expects production-quality code patterns."
         ),
-        "expertise_level": ExpertiseLevel.expert,
     },
     {
-        "name": "Kai",
+        "name": "Kai — Platform Lead",
+        "legacy_names": ("Kai",),
+        "role_label": "Platform lead",
         "identity": (
             "Platform team lead evaluating whether agents can be deployed on "
-            "their OpenShift cluster without creating toil for the platform team."
+            "their OpenShift cluster without creating toil for the platform "
+            "team. 12 years total experience, 5 years at this company. "
+            "Proficient in OpenShift, Kubernetes, Helm, and CI/CD; not focused "
+            "on application behavior or AI capabilities."
         ),
         "perspective": (
             "Goes straight to Dockerfile, Helm charts, Makefile deploy targets, "
@@ -90,7 +108,6 @@ _PERSONAS = [
             "cares about operational concerns: deployment, monitoring, security, "
             "and platform standards."
         ),
-        "expertise_level": ExpertiseLevel.expert,
     },
 ]
 
@@ -159,15 +176,60 @@ _PHASES = [
 ]
 
 
+def _persona_prompt(persona_data: dict) -> str:
+    return generate_system_prompt(
+        name=persona_data["name"],
+        identity=persona_data["identity"],
+        perspective=persona_data["perspective"],
+        constraints=persona_data["constraints"],
+    )
+
+
+async def _sync_dx_personas(db) -> None:
+    """Update built-in DX persona names, role labels, and prompts."""
+    result = await db.execute(select(Persona).where(Persona.name.in_(DX_PERSONA_NAMES)))
+    by_name = {p.name: p for p in result.scalars().all()}
+
+    legacy_result = await db.execute(
+        select(Persona).where(
+            Persona.name.in_([n for pd in _PERSONAS for n in pd.get("legacy_names", ())])
+        )
+    )
+    for persona in legacy_result.scalars().all():
+        if persona.name not in by_name:
+            by_name[persona.name] = persona
+
+    for persona_data in _PERSONAS:
+        persona = by_name.get(persona_data["name"])
+        if persona is None:
+            for legacy in persona_data.get("legacy_names", ()):
+                persona = by_name.get(legacy)
+                if persona is not None:
+                    break
+        if persona is None:
+            continue
+        persona.name = persona_data["name"]
+        persona.role_label = persona_data["role_label"]
+        persona.identity = persona_data["identity"]
+        persona.perspective = persona_data["perspective"]
+        persona.constraints = persona_data["constraints"]
+        persona.system_prompt = _persona_prompt(persona_data)
+        persona.prompt_approved = True
+
+
 async def seed_dx_pack() -> None:
-    """Seed built-in DX personas and journey if not already present."""
+    """Seed or sync built-in DX personas and journey."""
     async with async_session() as db:
         result = await db.execute(
             select(Journey)
             .options(selectinload(Journey.phases))
             .where(Journey.name == DX_JOURNEY_NAME)
         )
-        if result.scalar_one_or_none() is not None:
+        journey = result.scalar_one_or_none()
+
+        if journey is not None:
+            await _sync_dx_personas(db)
+            await db.commit()
             return
 
         journey = Journey(
@@ -187,16 +249,11 @@ async def seed_dx_pack() -> None:
             db.add(
                 Persona(
                     name=persona_data["name"],
+                    role_label=persona_data["role_label"],
                     identity=persona_data["identity"],
                     perspective=persona_data["perspective"],
                     constraints=persona_data["constraints"],
-                    expertise_level=persona_data["expertise_level"],
-                    system_prompt=generate_system_prompt(
-                        name=persona_data["name"],
-                        identity=persona_data["identity"],
-                        perspective=persona_data["perspective"],
-                        constraints=persona_data["constraints"],
-                    ),
+                    system_prompt=_persona_prompt(persona_data),
                     prompt_approved=True,
                 )
             )

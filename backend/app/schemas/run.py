@@ -3,12 +3,22 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class PersonaEnvironmentSpec(BaseModel):
     persona_id: uuid.UUID
-    environment_ids: list[uuid.UUID] = Field(default_factory=list)
+    environment_id: uuid.UUID | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_environment_ids(cls, data: object) -> object:
+        if isinstance(data, dict) and "environment_id" not in data:
+            legacy_ids = data.get("environment_ids") or []
+            if legacy_ids:
+                data = {**data, "environment_id": legacy_ids[0]}
+            data.pop("environment_ids", None)
+        return data
 
 
 class RunCreate(BaseModel):

@@ -48,7 +48,7 @@ ARCHITECTURE.md 151L lines:1-55
   47| | identity | Who they are, their background |
   48| | perspective | What they focus on, what they evaluate |
   49| | constraints | What they know vs don't know |
-  50| | expertise_level | novice / intermediate / expert |
+  50| | role_label | Short role label shown on persona cards (e.g. Junior dev) |
   51| | system_prompt | Generated from fields above, reviewed by user |
   52| | prompt_approved | User has reviewed and approved the prompt |
   53| 

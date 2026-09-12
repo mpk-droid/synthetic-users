@@ -8,6 +8,8 @@ import {
   generatePersonaPrompt,
   approvePersonaPrompt,
 } from '../api/client';
+import { DetailExportButton } from '../components/DetailExportButton';
+import { exportPersonaJson } from '../utils/personaImportExport';
 
 export default function PersonaDetail() {
   const { id } = useParams<{ id: string }>();
@@ -25,7 +27,7 @@ export default function PersonaDetail() {
     identity: '',
     perspective: '',
     constraints: '',
-    expertise_level: 'intermediate',
+    role_label: '',
   });
 
   useEffect(() => {
@@ -35,7 +37,7 @@ export default function PersonaDetail() {
         identity: persona.identity,
         perspective: persona.perspective,
         constraints: persona.constraints,
-        expertise_level: persona.expertise_level,
+        role_label: persona.role_label,
       });
     }
   }, [persona]);
@@ -93,6 +95,7 @@ export default function PersonaDetail() {
       <div className="page-header">
         <h2>{persona.name}</h2>
         <div className="page-header-actions">
+          <DetailExportButton onClick={() => exportPersonaJson(persona)} />
           <span
             className={`badge ${persona.prompt_approved ? 'badge--green' : 'badge--gray'}`}
           >
@@ -151,17 +154,16 @@ export default function PersonaDetail() {
         </div>
 
         <div className="form-group">
-          <label htmlFor="expertise_level">Expertise Level</label>
-          <select
-            id="expertise_level"
-            name="expertise_level"
-            value={form.expertise_level}
+          <label htmlFor="role_label">Role Label</label>
+          <input
+            id="role_label"
+            name="role_label"
+            type="text"
+            value={form.role_label}
             onChange={handleChange}
-          >
-            <option value="novice">Novice</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="expert">Expert</option>
-          </select>
+            placeholder="e.g., Junior dev"
+            required
+          />
         </div>
 
         <div className="form-actions">

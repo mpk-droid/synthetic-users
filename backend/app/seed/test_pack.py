@@ -12,18 +12,28 @@ from sqlalchemy.orm import selectinload
 from app.db.session import async_session
 from app.engine.prompt_generator import generate_system_prompt
 from app.models.journey import Journey, JourneyPhase
-from app.models.persona import ExpertiseLevel, Persona
+from app.models.persona import Persona
 
 SMOKE_TEST_REPO_URL = "https://github.com/mpk-droid/synthetic-users-smoke-test.git"
 SMOKE_TEST_JOURNEY_NAME = "Smoke Test Journey"
-SMOKE_PERSONA_NAMES = ("Alex (Test)", "Blake (Test)", "Casey (Test)")
+SMOKE_PERSONA_NAMES = (
+    "Alex (Test) — Junior QA Engineer",
+    "Blake (Test) — Mid-level Backend Dev",
+    "Casey (Test) — Staff Engineer",
+)
 LEGACY_SMOKE_PHASE_NAMES = ("README Check", "File Scan")
 
 _PERSONAS = [
     {
-        "name": "Alex (Test)",
-        "legacy_names": ("Alex",),
-        "identity": "QA engineer validating a service repo before release.",
+        "name": "Alex (Test) — Junior QA Engineer",
+        "legacy_names": ("Alex (Test)", "Alex"),
+        "role_label": "Junior QA",
+        "identity": (
+            "Junior QA engineer validating a service repo before release. "
+            "1 year total experience, 6 months at this company. Proficient in "
+            "manual test planning and README-driven verification; still learning "
+            "CI pipelines and container workflows."
+        ),
         "perspective": (
             "Checks documentation accuracy, setup steps, and whether a new tester "
             "could run the project without guessing."
@@ -32,12 +42,16 @@ _PERSONAS = [
             "Follows README and docs literally. Reports gaps between documented "
             "and actual behavior."
         ),
-        "expertise_level": ExpertiseLevel.novice,
     },
     {
-        "name": "Blake (Test)",
-        "legacy_names": ("Blake",),
-        "identity": "Backend developer reviewing a small Python HTTP service.",
+        "name": "Blake (Test) — Mid-level Backend Dev",
+        "legacy_names": ("Blake (Test)", "Blake"),
+        "role_label": "Mid-level dev",
+        "identity": (
+            "Mid-level backend developer reviewing a small Python HTTP service. "
+            "4 years total experience, 2 years at this company. Proficient in "
+            "Python web services, dependency management, and Docker basics."
+        ),
         "perspective": (
             "Inspects project layout, dependencies, config, and whether CI/Docker "
             "artifacts match what the README claims."
@@ -46,12 +60,16 @@ _PERSONAS = [
             "Reads source files and config. May run short shell commands to verify "
             "setup steps when safe."
         ),
-        "expertise_level": ExpertiseLevel.intermediate,
     },
     {
-        "name": "Casey (Test)",
-        "legacy_names": ("Casey",),
-        "identity": "Tech lead doing a pre-demo quality spot-check.",
+        "name": "Casey (Test) — Staff Engineer",
+        "legacy_names": ("Casey (Test)", "Casey"),
+        "role_label": "Staff engineer",
+        "identity": (
+            "Staff engineer doing a pre-demo quality spot-check. 8 years total "
+            "experience, 3 years at this company. Proficient in code review, "
+            "security basics, and release readiness checks."
+        ),
         "perspective": (
             "Looks for security smells, missing files referenced in docs, and "
             "blockers that would embarrass the team in a demo."
@@ -60,7 +78,6 @@ _PERSONAS = [
             "Time-boxed but thorough enough to catch obvious DX and security issues. "
             "Uses tools to verify claims in documentation."
         ),
-        "expertise_level": ExpertiseLevel.intermediate,
     },
 ]
 
@@ -121,20 +138,18 @@ def _persona_prompt(persona_data: dict) -> str:
 
 
 async def _sync_smoke_personas(db) -> None:
-    """Update smoke-test persona names and prompts (handles renames)."""
+    """Update smoke-test persona names, role labels, and prompts."""
     result = await db.execute(select(Persona).where(Persona.name.in_(SMOKE_PERSONA_NAMES)))
     by_name = {p.name: p for p in result.scalars().all()}
 
     legacy_result = await db.execute(
         select(Persona).where(
-            Persona.name.in_(
-                [n for pd in _PERSONAS for n in pd.get("legacy_names", ())]
-            )
+            Persona.name.in_([n for pd in _PERSONAS for n in pd.get("legacy_names", ())])
         )
     )
-    for p in legacy_result.scalars().all():
-        if p.name not in by_name:
-            by_name[p.name] = p
+    for persona in legacy_result.scalars().all():
+        if persona.name not in by_name:
+            by_name[persona.name] = persona
 
     for persona_data in _PERSONAS:
         persona = by_name.get(persona_data["name"])
@@ -146,10 +161,10 @@ async def _sync_smoke_personas(db) -> None:
         if persona is None:
             continue
         persona.name = persona_data["name"]
+        persona.role_label = persona_data["role_label"]
         persona.identity = persona_data["identity"]
         persona.perspective = persona_data["perspective"]
         persona.constraints = persona_data["constraints"]
-        persona.expertise_level = persona_data["expertise_level"]
         persona.system_prompt = _persona_prompt(persona_data)
         persona.prompt_approved = True
 
@@ -210,10 +225,10 @@ async def seed_test_pack() -> None:
             db.add(
                 Persona(
                     name=persona_data["name"],
+                    role_label=persona_data["role_label"],
                     identity=persona_data["identity"],
                     perspective=persona_data["perspective"],
                     constraints=persona_data["constraints"],
-                    expertise_level=persona_data["expertise_level"],
                     system_prompt=_persona_prompt(persona_data),
                     prompt_approved=True,
                 )

@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getRuns } from '../api/client';
+import { getJourneys, getRuns } from '../api/client';
 import RunActions from '../components/RunActions';
 import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
@@ -14,6 +15,19 @@ export default function Dashboard() {
     queryFn: getRuns,
     refetchInterval: 10000,
   });
+
+  const journeysQuery = useQuery({
+    queryKey: ['journeys'],
+    queryFn: getJourneys,
+  });
+
+  const journeyNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const journey of journeysQuery.data ?? []) {
+      map.set(journey.id, journey.name);
+    }
+    return map;
+  }, [journeysQuery.data]);
 
   const runs = runsQuery.data ?? [];
 
@@ -41,6 +55,7 @@ export default function Dashboard() {
               <th>Score</th>
               <th>Status</th>
               <th>Personas</th>
+              <th>Journey</th>
               <th>Started at</th>
               <th>Elapsed</th>
               <th aria-label="Actions" />
@@ -61,6 +76,7 @@ export default function Dashboard() {
                   <StatusBadge status={run.status} />
                 </td>
                 <td>{run.persona_environments.length}</td>
+                <td>{journeyNameById.get(run.journey_id) ?? '—'}</td>
                 <td>{formatRunDateTime(run.started_at ?? run.created_at)}</td>
                 <td>
                   {formatElapsed(
