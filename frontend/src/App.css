@@ -351,6 +351,12 @@ h1, h2, h3, h4 {
   margin: 0;
 }
 
+.card-role-label {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--color-gray-500);
+}
+
 .card-meta {
   display: flex;
   gap: 6px;
@@ -658,6 +664,28 @@ h1, h2, h3, h4 {
 /* ============================================
    Prompt display
    ============================================ */
+.prompt-approved-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--color-gray-500);
+}
+
+.prompt-approved-note__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
 .prompt-actions {
   display: flex;
   gap: 8px;
@@ -1150,9 +1178,18 @@ h1, h2, h3, h4 {
 .findings-section__header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
   margin-bottom: 8px;
+}
+
+.findings-section__header-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .findings-section__title {
@@ -1200,7 +1237,8 @@ h1, h2, h3, h4 {
   justify-content: center;
   width: 32px;
   height: 32px;
-  margin-left: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
   padding: 0;
   border: 1px solid var(--color-primary);
   border-radius: var(--border-radius);

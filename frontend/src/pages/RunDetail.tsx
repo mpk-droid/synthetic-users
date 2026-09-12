@@ -588,38 +588,40 @@ function FindingsSection({
   return (
     <div className="findings-section">
       <div className="findings-section__header">
-        <h4 className="findings-section__title">
-          Findings
-          <span className="findings-section__count">
-            (
-            {filteredFindings.length !== findings.length
-              ? `${filteredFindings.length} of ${findings.length}`
-              : findings.length}
-            )
-          </span>
-        </h4>
-        <div className="findings-section__stats">
-          {FINDING_SEVERITIES.map((sev) => (
-            <div key={sev} className="findings-stat">
-              <SeverityBadge severity={sev} showColon />
-              <span
-                className={`findings-stat__count${findingsPending ? ' findings-stat__count--pending' : ''}`}
-              >
-                {findingsPending ? 'pending' : severityCounts[sev] || 0}
-              </span>
-            </div>
-          ))}
-          <button
-            type="button"
-            className="findings-export-btn"
-            title="export to csv"
-            aria-label="export to csv"
-            disabled={filteredFindings.length === 0}
-            onClick={() => exportFindingsToCsv(filteredFindings, exportFilename)}
-          >
-            <IconExport className="findings-export-btn__icon" />
-          </button>
+        <div className="findings-section__header-main">
+          <h4 className="findings-section__title">
+            Findings
+            <span className="findings-section__count">
+              (
+              {filteredFindings.length !== findings.length
+                ? `${filteredFindings.length} of ${findings.length}`
+                : findings.length}
+              )
+            </span>
+          </h4>
+          <div className="findings-section__stats">
+            {FINDING_SEVERITIES.map((sev) => (
+              <div key={sev} className="findings-stat">
+                <SeverityBadge severity={sev} showColon />
+                <span
+                  className={`findings-stat__count${findingsPending ? ' findings-stat__count--pending' : ''}`}
+                >
+                  {findingsPending ? 'pending' : severityCounts[sev] || 0}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
+        <button
+          type="button"
+          className="findings-export-btn"
+          title="export to csv"
+          aria-label="export to csv"
+          disabled={filteredFindings.length === 0}
+          onClick={() => exportFindingsToCsv(filteredFindings, exportFilename)}
+        >
+          <IconExport className="findings-export-btn__icon" />
+        </button>
       </div>
       {findings.length === 0 ? (
         <p className="empty-state">{emptyMessage}</p>

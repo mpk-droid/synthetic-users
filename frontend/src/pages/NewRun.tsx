@@ -156,7 +156,7 @@ export default function NewRun() {
                       onChange={() => togglePersona(p.id)}
                     />
                     <div className="checkbox-card-content">
-                      <strong>{p.name}</strong>
+                      <strong>{personaShortName(p.name)}</strong>
                       <span className="checkbox-card-meta">{p.role_label}</span>
                     </div>
                   </label>

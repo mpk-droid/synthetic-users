@@ -10,6 +10,7 @@ import {
   importPersonasFromItems,
   validatePersonasImport,
 } from '../utils/personaImportExport';
+import { personaShortName } from '../utils/personaDisplay';
 
 export default function Personas() {
   const navigate = useNavigate();
@@ -122,15 +123,10 @@ export default function Personas() {
                 </label>
               )}
               <div className="card-header">
-                <h3 className="card-title">{p.name}</h3>
-                <span
-                  className={`badge ${p.prompt_approved ? 'badge--green' : 'badge--gray'}`}
-                >
-                  {p.prompt_approved ? 'Approved' : 'Unapproved'}
-                </span>
-              </div>
-              <div className="card-meta">
-                <span className="badge badge--outline">{p.role_label}</span>
+                <div>
+                  <h3 className="card-title">{personaShortName(p.name)}</h3>
+                  <p className="card-role-label">{p.role_label}</p>
+                </div>
               </div>
             </div>
           );

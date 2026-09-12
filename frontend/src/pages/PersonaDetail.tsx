@@ -96,11 +96,6 @@ export default function PersonaDetail() {
         <h2>{persona.name}</h2>
         <div className="page-header-actions">
           <DetailExportButton onClick={() => exportPersonaJson(persona)} />
-          <span
-            className={`badge ${persona.prompt_approved ? 'badge--green' : 'badge--gray'}`}
-          >
-            {persona.prompt_approved ? 'Prompt Approved' : 'Prompt Unapproved'}
-          </span>
         </div>
       </div>
 
@@ -212,6 +207,12 @@ export default function PersonaDetail() {
           >
             {approveMutation.isPending ? 'Approving...' : 'Approve Prompt'}
           </button>
+          {persona.prompt_approved && (
+            <span className="prompt-approved-note">
+              <span className="prompt-approved-note__icon" aria-hidden="true">✓</span>
+              Current prompt was approved
+            </span>
+          )}
         </div>
         {persona.system_prompt ? (
           <pre className="prompt-display">{persona.system_prompt}</pre>
