@@ -808,14 +808,17 @@ h1, h2, h3, h4 {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
   margin-top: 4px;
 }
 
 .checkbox-card {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--color-gray-200);
   border-radius: var(--border-radius);
@@ -852,17 +855,21 @@ h1, h2, h3, h4 {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   cursor: pointer;
 }
 
 .persona-env-select {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  flex: 0 0 auto;
   margin-left: auto;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .persona-env-select label {
@@ -874,7 +881,8 @@ h1, h2, h3, h4 {
 }
 
 .persona-env-select select {
-  min-width: 140px;
+  width: auto;
+  min-width: 160px;
 }
 
 .persona-env-select select:disabled {
