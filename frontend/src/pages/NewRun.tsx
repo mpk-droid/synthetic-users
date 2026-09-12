@@ -1,3 +1,4 @@
+[lean-ctx] no compression applied (mode=cognitive): output was not smaller than the file — returning full content (1457 tok)
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -160,23 +161,22 @@ export default function NewRun() {
                       <span className="checkbox-card-meta">{p.role_label}</span>
                     </div>
                   </label>
-                  {isSelected && (
-                    <div className="persona-env-select">
-                      <label htmlFor={`env-${p.id}`}>Environment</label>
-                      <select
-                        id={`env-${p.id}`}
-                        value={personaEnvs[p.id] ?? ''}
-                        onChange={(e) => setPersonaEnvironment(p.id, e.target.value)}
-                      >
-                        <option value="">Default</option>
-                        {environments?.map((env) => (
-                          <option key={env.id} value={env.id}>
-                            {env.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <div className="persona-env-select">
+                    <label htmlFor={`env-${p.id}`}>Environment</label>
+                    <select
+                      id={`env-${p.id}`}
+                      value={personaEnvs[p.id] ?? ''}
+                      onChange={(e) => setPersonaEnvironment(p.id, e.target.value)}
+                      disabled={!isSelected}
+                    >
+                      <option value="">Default</option>
+                      {environments?.map((env) => (
+                        <option key={env.id} value={env.id}>
+                          {env.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               );
             })}

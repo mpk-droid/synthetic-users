@@ -845,12 +845,6 @@ export default function RunDetail() {
           </p>
         )}
         <div className="run-meta">
-          <span className="run-meta__repo">
-            Repository:{' '}
-            <a href={run.repo_url} target="_blank" rel="noopener noreferrer">
-              {run.repo_url}
-            </a>
-          </span>
           {run.started_at && (
             <span
               className={`run-meta__elapsed${isRunActive ? ' run-meta__elapsed--active' : ''}`}
@@ -867,6 +861,12 @@ export default function RunDetail() {
           {isRunActive && (
             <span className="run-live-hint">Auto-refreshing every 3s</span>
           )}
+        </div>
+        <div className="run-meta__repo">
+          Repository:{' '}
+          <a href={run.repo_url} target="_blank" rel="noopener noreferrer">
+            {run.repo_url}
+          </a>
         </div>
       </div>
 

@@ -73,7 +73,7 @@ export default function About() {
           <div>
             <dt>Persona</dt>
             <dd>
-              A synthetic developer defined by identity, perspective, constraints, and expertise
+              A synthetic developer defined by identity, perspective, constraints, and role label
               level. A system prompt is generated and must be approved before runs.
             </dd>
           </div>

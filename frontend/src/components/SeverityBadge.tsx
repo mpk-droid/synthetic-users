@@ -16,10 +16,10 @@ const severityColors: Record<string, string> = {
 
 const severityLabels: Record<string, string> = {
   critical: 'Critical',
-  needs_attention: 'Needs attention',
+  needs_attention: 'Needs ATTN',
   nits: 'Nits',
-  high: 'Needs attention',
-  medium: 'Needs attention',
+  high: 'Needs ATTN',
+  medium: 'Needs ATTN',
   low: 'Nits',
   info: 'Nits',
 };

@@ -7,6 +7,10 @@ import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
 import { formatElapsed, formatRunDateTime } from '../utils/datetime';
 
+function shortJourneyName(name: string): string {
+  return name.replace(/\s+journey$/i, '');
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
 
@@ -24,7 +28,7 @@ export default function Dashboard() {
   const journeyNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const journey of journeysQuery.data ?? []) {
-      map.set(journey.id, journey.name);
+      map.set(journey.id, shortJourneyName(journey.name));
     }
     return map;
   }, [journeysQuery.data]);

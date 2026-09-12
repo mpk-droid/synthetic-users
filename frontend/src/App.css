@@ -441,6 +441,7 @@ h1, h2, h3, h4 {
   color: var(--color-white);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 /* Status badge */
@@ -844,6 +845,11 @@ h1, h2, h3, h4 {
   width: 100%;
 }
 
+.persona-env-select select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .form-hint {
   font-size: 0.875rem;
   color: var(--color-gray-500);
@@ -953,6 +959,12 @@ h1, h2, h3, h4 {
 .run-meta {
   display: flex;
   gap: 24px;
+  font-size: 0.85rem;
+  color: var(--color-gray-600);
+}
+
+.run-meta__repo {
+  margin-top: 8px;
   font-size: 0.85rem;
   color: var(--color-gray-600);
 }
