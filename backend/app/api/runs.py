@@ -189,7 +189,9 @@ def _build_persona_phase_times(
         if not started or not completed_at or completed_at <= started:
             still_missing.append(name)
     if still_missing:
-        total_secs = max((run_end - run_start).total_seconds(), float(len(still_missing)))
+        total_secs = max(
+            (run_end - run_start).total_seconds(), float(len(still_missing))
+        )
         slot_secs = total_secs / len(still_missing)
         cursor = _parse_ts(result[relevant[0]].get("started_at")) or run_start
         for name in completed_names:
@@ -220,6 +222,21 @@ def _build_persona_phase_times(
 
     _enforce_monotonic_phase_times(result, relevant)
     return {name: result[name] for name in relevant if name in result}
+
+
+def _maybe_schedule_triage(run: Run) -> None:
+    """Backfill triage for completed runs that predate orchestrator triage."""
+    import asyncio
+
+    from app.engine.triage import triage_run
+    from app.models.run import RunStatus
+
+    if run.status not in {RunStatus.completed, RunStatus.failed}:
+        return
+    triage = (run.metadata_ or {}).get("triage")
+    if triage:
+        return
+    asyncio.create_task(triage_run(str(run.id)))
 
 
 async def reconcile_run(run_id: uuid.UUID, db: AsyncSession) -> None:
@@ -456,7 +473,6 @@ async def create_run(
     return run
 
 
-
 @router.post("/{run_id}/cancel")
 async def cancel_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     """Stop an in-flight run and mark it cancelled."""
@@ -491,7 +507,6 @@ async def cancel_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     return {"status": "cancelled"}
 
 
-
 @router.delete("/{run_id}", status_code=204)
 async def delete_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     run = await db.get(Run, run_id)
@@ -518,6 +533,8 @@ async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     if not run:
         raise HTTPException(404, "Run not found")
 
+    _maybe_schedule_triage(run)
+
     journey_phases = []
     if run.journey:
         journey_phases = [
@@ -538,6 +555,7 @@ async def get_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         "score_rationale": run.score_rationale,
         "error": run.error,
         "created_at": run.created_at.isoformat(),
+        "triage": (run.metadata_ or {}).get("triage"),
         "personas": [
             {
                 "id": str(rp.id),

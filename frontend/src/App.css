@@ -2242,3 +2242,92 @@ h1, h2, h3, h4 {
     flex-wrap: wrap;
   }
 }
+
+
+.run-insights-section {
+  margin-bottom: 1.5rem;
+}
+
+.run-insights-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.run-insights-section__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.run-insights-section__status {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.run-insights-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.run-insight-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  background: var(--surface-elevated, var(--surface));
+}
+
+.run-insight-card__persona {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.run-insight-card__message {
+  margin: 0 0 0.5rem;
+}
+
+.run-insight-card__suggestion {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+
+.finding-title-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.finding-verification {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.finding-verification--verified {
+  color: #1f7a3b;
+  border-color: #9fd4ad;
+  background: #edf9f0;
+}
+
+.finding-verification--consensus_only {
+  color: #7a5d11;
+  border-color: #e6d39a;
+  background: #fff8e8;
+}
+
+.finding-verification--unverified {
+  color: var(--text-muted);
+}
+
+.finding-verification-note {
+  margin-bottom: 0.75rem;
+}

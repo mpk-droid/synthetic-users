@@ -8,6 +8,9 @@ import type {
   RunActivityEntry,
   RunPersonaDetail,
   FindingResponse,
+  RunInsight,
+  TriagedFinding,
+  VerificationStatus,
 } from '../types';
 import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
@@ -529,21 +532,83 @@ function PhaseProgress({
   );
 }
 
-type FindingRow = FindingResponse & { personaLabel?: string };
+
+
+function verificationLabel(status: VerificationStatus): string {
+  switch (status) {
+    case 'verified':
+      return 'Verified';
+    case 'consensus_only':
+      return 'Consensus only';
+    case 'unverified':
+      return 'Unverified';
+    default:
+      return status;
+  }
+}
+
+function InsightsSection({
+  insights,
+  pending,
+}: {
+  insights: RunInsight[];
+  pending: boolean;
+}) {
+  return (
+    <section className="run-insights-section">
+      <div className="run-insights-section__header">
+        <h4 className="run-insights-section__title">Insights</h4>
+        {pending && (
+          <span className="run-insights-section__status">Analyzing personas…</span>
+        )}
+      </div>
+      {pending ? (
+        <p className="empty-state">
+          Insights will appear after all personas finish and the orchestrator verifies findings.
+        </p>
+      ) : insights.length === 0 ? (
+        <p className="empty-state">No persona insights for this run.</p>
+      ) : (
+        <ul className="run-insights-list">
+          {insights.map((insight, index) => (
+            <li key={`${insight.persona}-${insight.kind}-${index}`} className="run-insight-card">
+              <div className="run-insight-card__persona">{insight.persona}</div>
+              <p className="run-insight-card__message">{insight.message}</p>
+              <p className="run-insight-card__suggestion">
+                <strong>Suggestion:</strong> {insight.suggestion}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+type FindingRow = FindingResponse & {
+  personaLabel?: string;
+  personaLabels?: string[];
+  verification_status?: VerificationStatus;
+  verification_note?: string;
+};
 
 function FindingsSection({
   findings,
   findingsPending,
   emptyMessage,
   exportFilename,
+  title = 'Findings',
   showPersonaColumn = false,
+  personaColumnLabel = 'Persona',
   personaOptions = [],
 }: {
   findings: FindingRow[];
   findingsPending: boolean;
   emptyMessage: string;
   exportFilename: string;
+  title?: string;
   showPersonaColumn?: boolean;
+  personaColumnLabel?: string;
   personaOptions?: string[];
 }) {
   const [expandedFindings, setExpandedFindings] = useState<Set<string>>(new Set());
@@ -561,7 +626,10 @@ function FindingsSection({
       }
       if (categoryFilter && f.category !== categoryFilter) return false;
       if (phaseFilter && f.phase !== phaseFilter) return false;
-      if (personaFilter && f.personaLabel !== personaFilter) return false;
+      if (personaFilter) {
+        const labels = f.personaLabels ?? (f.personaLabel ? [f.personaLabel] : []);
+        if (!labels.includes(personaFilter)) return false;
+      }
       return true;
     })
     .sort(compareFindings);
@@ -590,7 +658,7 @@ function FindingsSection({
       <div className="findings-section__header">
         <div className="findings-section__header-main">
           <h4 className="findings-section__title">
-            Findings
+            {title}
             <span className="findings-section__count">
               (
               {filteredFindings.length !== findings.length
@@ -618,7 +686,7 @@ function FindingsSection({
           title="export to csv"
           aria-label="export to csv"
           disabled={filteredFindings.length === 0}
-          onClick={() => exportFindingsToCsv(filteredFindings, exportFilename)}
+          onClick={() => exportFindingsToCsv(filteredFindings, exportFilename, { includePersonas: showPersonaColumn })}
         >
           <IconExport className="findings-export-btn__icon" />
         </button>
@@ -667,7 +735,7 @@ function FindingsSection({
               {showPersonaColumn && (
                 <th>
                   <label className="data-table__th-filter">
-                    <span className="data-table__th-label">Persona</span>
+                    <span className="data-table__th-label">{personaColumnLabel}</span>
                     <select
                       aria-label="Filter by persona"
                       value={personaFilter}
@@ -722,14 +790,33 @@ function FindingsSection({
                       <SeverityBadge severity={f.severity} />
                     </td>
                     <td>{f.category}</td>
-                    <td>{f.title}</td>
-                    {showPersonaColumn && <td>{f.personaLabel}</td>}
+                    <td>
+                      <div className="finding-title-cell">
+                        <span>{f.title}</span>
+                        {f.verification_status && (
+                          <span
+                            className={`finding-verification finding-verification--${f.verification_status}`}
+                          >
+                            {verificationLabel(f.verification_status)}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    {showPersonaColumn && (
+                <td>{(f.personaLabels ?? (f.personaLabel ? [f.personaLabel] : [])).join(', ')}</td>
+              )}
                     <td>{f.phase}</td>
                   </tr>
                   {expandedFindings.has(f.id) && (
                     <tr className="finding-detail-row">
                       <td colSpan={columnCount}>
                         <div className="finding-detail">
+                          {f.verification_note && (
+                            <div className="finding-verification-note">
+                              <strong>Verification</strong>
+                              <p>{f.verification_note}</p>
+                            </div>
+                          )}
                           <div className="finding-description">
                             <strong>Description</strong>
                             <p>{f.description}</p>
@@ -776,7 +863,14 @@ export default function RunDetail() {
     enabled: !!id,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
+      const triageStatus = query.state.data?.triage?.status;
       if (status === 'pending' || status === 'running') return 3000;
+      if (
+        (status === 'completed' || status === 'failed') &&
+        (!triageStatus || triageStatus === 'pending')
+      ) {
+        return 3000;
+      }
       return false;
     },
   });
@@ -810,19 +904,25 @@ export default function RunDetail() {
   const personaFindings = activePersona?.findings ?? [];
   const findingsPending =
     activePersona?.status === 'running' || activePersona?.status === 'pending';
-  const overviewFindings: FindingRow[] = run.personas.flatMap((persona) => {
-    const label = personaName(persona.persona_id);
-    return (persona.findings ?? []).map((finding) => ({
+  const triage = run.triage;
+  const overviewFindings: FindingRow[] = (triage?.triaged_findings ?? []).map(
+    (finding: TriagedFinding) => ({
       ...finding,
-      personaLabel: label,
-    }));
-  });
-  const overviewFindingsPending = run.personas.some(
-    (persona) => persona.status === 'running' || persona.status === 'pending',
+      personaLabels: finding.personas,
+      verification_status: finding.verification_status,
+      verification_note: finding.verification_note,
+    }),
   );
-  const overviewPersonaOptions = run.personas
-    .map((persona) => personaName(persona.persona_id))
-    .sort();
+  const overviewFindingsPending =
+    isRunActive ||
+    triage?.status === 'pending' ||
+    ((run.status === 'completed' || run.status === 'failed') && !triage);
+  const overviewInsights = triage?.insights ?? [];
+  const overviewInsightsPending =
+    isRunActive || triage?.status === 'pending' || (!triage && !isRunActive);
+  const overviewPersonaOptions = [
+    ...new Set(overviewFindings.flatMap((finding) => finding.personaLabels ?? [])),
+  ].sort();
 
   return (
     <div className="page">
@@ -917,26 +1017,25 @@ export default function RunDetail() {
 
           {isOverview ? (
             <div className="persona-detail persona-detail--overview">
-              <section className="run-activity-section run-activity-section--overview">
-                <PhaseActivityTerminal
-                  phaseName="Orchestrator"
-                  lines={[]}
-                  isLive={false}
-                  phaseState="pending"
-                  emptyMessage="TBD"
+              <section className="run-insights-panel">
+                <InsightsSection
+                  insights={overviewInsights}
+                  pending={overviewInsightsPending}
                 />
               </section>
               <section className="run-findings-panel">
                 <FindingsSection
+                  title="Triaged Findings"
                   findings={overviewFindings}
                   findingsPending={overviewFindingsPending}
                   emptyMessage={
                     overviewFindingsPending
-                      ? 'Findings will appear here as personas complete their evaluation.'
-                      : 'No findings for this run.'
+                      ? 'Triaged findings will appear after all personas finish and the orchestrator verifies reports.'
+                      : 'No triaged findings for this run.'
                   }
-                  exportFilename={`${sanitizeFilename(run.name)}-overview-findings.csv`}
+                  exportFilename={`${sanitizeFilename(run.name)}-triaged-findings.csv`}
                   showPersonaColumn
+                  personaColumnLabel="Personas"
                   personaOptions={overviewPersonaOptions}
                 />
               </section>

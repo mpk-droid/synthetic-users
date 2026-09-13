@@ -156,6 +156,34 @@ export interface RunResponse {
   created_at: string;
 }
 
+
+export type VerificationStatus =
+  | 'verified'
+  | 'contradicted'
+  | 'unverified'
+  | 'consensus_only';
+
+export interface TriagedFinding extends FindingResponse {
+  personas: string[];
+  source_finding_ids?: string[];
+  verification_status: VerificationStatus;
+  verification_note?: string;
+}
+
+export interface RunInsight {
+  persona: string;
+  kind: string;
+  message: string;
+  suggestion: string;
+}
+
+export interface RunTriage {
+  status: 'pending' | 'complete';
+  triaged_findings: TriagedFinding[];
+  insights: RunInsight[];
+  error?: string;
+}
+
 export interface RunDetailResponse {
   id: string;
   name: string;
@@ -170,4 +198,5 @@ export interface RunDetailResponse {
   created_at: string;
   journey_phases: JourneyPhaseRef[];
   personas: RunPersonaDetail[];
+  triage: RunTriage | null;
 }

@@ -1,4 +1,6 @@
-import type { FindingResponse } from '../types';
+import type { FindingResponse, TriagedFinding } from '../types';
+
+type ExportableFinding = FindingResponse & { personaLabels?: string[] };
 
 function csvCell(value: string | null | undefined): string {
   const text = value ?? '';
@@ -6,36 +8,45 @@ function csvCell(value: string | null | undefined): string {
 }
 
 export function exportFindingsToCsv(
-  findings: FindingResponse[],
+  findings: ExportableFinding[],
   filename: string,
+  options?: { includePersonas?: boolean },
 ): void {
+  const includePersonas = options?.includePersonas ?? false;
   const headers = [
     'id',
     'severity',
     'category',
     'title',
     'phase',
+    ...(includePersonas ? ['personas'] : []),
     'description',
     'evidence',
     'file_path',
     'suggestion',
   ];
 
-  const rows = findings.map((finding) =>
-    [
+  const rows = findings.map((finding) => {
+    const personas =
+      finding.personaLabels?.join(', ') ??
+      ('personas' in finding
+        ? (finding as TriagedFinding).personas.join(', ')
+        : '');
+    return [
       finding.id,
       finding.severity,
       finding.category,
       finding.title,
       finding.phase,
+      ...(includePersonas ? [personas] : []),
       finding.description,
       finding.evidence,
       finding.file_path,
       finding.suggestion,
     ]
       .map(csvCell)
-      .join(','),
-  );
+      .join(',');
+  });
 
   const csv = [headers.join(','), ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

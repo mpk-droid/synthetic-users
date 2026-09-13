@@ -34,9 +34,7 @@ def _build_client(config: dict):
         )
         fallback_model = config.get("nvidia_nim_fallback_model")
         if fallback_model is None:
-            fallback_model = os.environ.get(
-                "NVIDIA_NIM_FALLBACK_MODEL", FALLBACK_MODEL
-            )
+            fallback_model = os.environ.get("NVIDIA_NIM_FALLBACK_MODEL", FALLBACK_MODEL)
         enable_thinking = config.get("nvidia_nim_enable_thinking")
         if enable_thinking is None:
             enable_thinking = os.environ.get(
@@ -275,7 +273,6 @@ async def execute_agent_run(
     }
 
 
-
 async def finalize_run_if_complete(run_id: str) -> bool:
     """Score and mark run completed when all personas are terminal. Idempotent."""
     from sqlalchemy import select
@@ -328,6 +325,11 @@ async def finalize_run_if_complete(run_id: str) -> bool:
             run.error = None
         await db.commit()
 
+    import asyncio
+
+    from app.engine.triage import triage_run
+
+    asyncio.create_task(triage_run(run_id))
 
     logger.info("Run %s finalized with score %s", run_id, score)
     return True
@@ -378,7 +380,10 @@ async def _load_findings_from_db(run_id: str) -> list[dict]:
     async with async_session() as db:
         result = await db.execute(
             select(Run)
-            .options(selectinload(Run.run_personas).selectinload(RunPersona.findings))
+            .options(
+                selectinload(Run.run_personas).selectinload(RunPersona.findings),
+                selectinload(Run.run_personas).selectinload(RunPersona.persona),
+            )
             .where(Run.id == run_id)
         )
         run = result.scalar_one_or_none()
@@ -387,9 +392,11 @@ async def _load_findings_from_db(run_id: str) -> list[dict]:
 
         findings = []
         for rp in run.run_personas:
+            persona_name = rp.persona.name if rp.persona else str(rp.persona_id)
             for f in rp.findings:
                 findings.append(
                     {
+                        "id": str(f.id),
                         "severity": f.severity.value,
                         "category": f.category,
                         "title": f.title,
@@ -399,6 +406,7 @@ async def _load_findings_from_db(run_id: str) -> list[dict]:
                         "line_range": f.line_range,
                         "suggestion": f.suggestion,
                         "phase": f.phase,
+                        "_persona": persona_name,
                     }
                 )
         return findings
