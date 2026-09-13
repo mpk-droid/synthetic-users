@@ -682,22 +682,39 @@ function InsightsSection({
   pending: boolean;
   pendingLabel: string;
 }) {
+  const [expanded, setExpanded] = useState(true);
   const journeyInsights = insights.filter(isJourneyInsight);
   const personaInsightsById = groupPersonaInsights(personaGroups, insights);
 
   return (
-    <section className="run-insights-section">
+    <section
+      className={`run-insights-section${expanded ? ' run-insights-section--expanded' : ' run-insights-section--collapsed'}`}
+    >
       <div className="run-insights-section__header">
-        <h4 className="run-insights-section__title">Insights</h4>
+        <button
+          type="button"
+          className="run-insights-section__toggle"
+          onClick={() => setExpanded((open) => !open)}
+          aria-expanded={expanded}
+        >
+          <span
+            className={`run-insights-section__chevron${expanded ? ' run-insights-section__chevron--open' : ''}`}
+            aria-hidden="true"
+          />
+          <span className="run-insights-section__title">Insights</span>
+          {!expanded && !pending && insights.length > 0 && (
+            <span className="run-insights-section__count">({insights.length})</span>
+          )}
+        </button>
         {pending && (
           <span className="run-insights-section__status">{pendingLabel}</span>
         )}
       </div>
-      {pending ? (
+      {expanded && pending ? (
         <p className="empty-state">
           Insights will appear after all personas finish and the orchestrator verifies findings.
         </p>
-      ) : (
+      ) : expanded ? (
         <>
           <div className="run-insights-group">
             <h5 className="run-insights-group__title">Personas</h5>
@@ -744,7 +761,7 @@ function InsightsSection({
             )}
           </div>
         </>
-      )}
+      ) : null}
     </section>
   );
 }
