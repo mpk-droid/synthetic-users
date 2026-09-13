@@ -225,7 +225,7 @@ def _build_persona_phase_times(
 
 
 def _maybe_schedule_triage(run: Run) -> None:
-    """Backfill triage for completed runs that predate orchestrator triage."""
+    """Backfill or resume orchestrator triage for completed runs."""
     import asyncio
 
     from app.engine.triage import triage_run
@@ -234,7 +234,7 @@ def _maybe_schedule_triage(run: Run) -> None:
     if run.status not in {RunStatus.completed, RunStatus.failed}:
         return
     triage = (run.metadata_ or {}).get("triage")
-    if triage:
+    if triage and triage.get("status") == "complete":
         return
     asyncio.create_task(triage_run(str(run.id)))
 

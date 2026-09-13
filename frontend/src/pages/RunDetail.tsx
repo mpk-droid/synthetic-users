@@ -1073,13 +1073,14 @@ export default function RunDetail() {
       verification_note: finding.verification_note,
     }),
   );
+  const triageFinished = triage?.status === 'complete';
   const overviewFindingsPending =
-    isRunActive ||
-    triage?.status === 'pending' ||
-    ((run.status === 'completed' || run.status === 'failed') && !triage);
+    !triageFinished &&
+    (isRunActive ||
+      triage?.status === 'pending' ||
+      ((run.status === 'completed' || run.status === 'failed') && !triage));
   const overviewInsights = triage?.insights ?? [];
-  const overviewInsightsPending =
-    isRunActive || triage?.status === 'pending' || (!triage && !isRunActive);
+  const overviewInsightsPending = !triageFinished && overviewFindingsPending;
   const overviewPersonaOptions = [
     ...new Set(overviewFindings.flatMap((finding) => finding.personaLabels ?? [])),
   ].sort();

@@ -22,6 +22,8 @@ from app.models.run import Run, RunPersona
 
 logger = logging.getLogger(__name__)
 
+_active_triage_runs: set[str] = set()
+
 
 def _persona_insight_suggestion(kind: str, persona: str) -> str:
     if kind == "inaccurate_finding":
@@ -245,6 +247,17 @@ def _cluster_to_triaged(
 
 
 async def triage_run(run_id: str) -> None:
+    """Run triage once per run at a time."""
+    if run_id in _active_triage_runs:
+        return
+    _active_triage_runs.add(run_id)
+    try:
+        await _triage_run_body(run_id)
+    finally:
+        _active_triage_runs.discard(run_id)
+
+
+async def _triage_run_body(run_id: str) -> None:
     """Deduplicate findings, verify evidence, and store orchestrator triage."""
     from app.db.session import async_session
 
