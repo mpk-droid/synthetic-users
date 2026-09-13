@@ -586,11 +586,13 @@ function InsightsSection({
   personaNames,
   journeyName,
   pending,
+  pendingLabel,
 }: {
   insights: RunInsight[];
   personaNames: string[];
   journeyName: string | null;
   pending: boolean;
+  pendingLabel: string;
 }) {
   const journeyInsights = insights.filter(isJourneyInsight);
   const personaInsightsByName = groupPersonaInsights(personaNames, insights);
@@ -600,7 +602,7 @@ function InsightsSection({
       <div className="run-insights-section__header">
         <h4 className="run-insights-section__title">Insights</h4>
         {pending && (
-          <span className="run-insights-section__status">Analyzing personas…</span>
+          <span className="run-insights-section__status">{pendingLabel}</span>
         )}
       </div>
       {pending ? (
@@ -980,6 +982,22 @@ function orchestratorDotClass(state: OrchestratorDotState): string {
   }
 }
 
+
+function insightsPendingLabel(
+  runStatus: string,
+  personas: RunPersonaDetail[],
+  triage: RunTriage | null | undefined,
+): string {
+  switch (orchestratorDotState(runStatus, personas, triage)) {
+    case 'live':
+      return 'Orchestrator triaging…';
+    case 'idle':
+      return 'Waiting for all personas to complete…';
+    default:
+      return 'Preparing insights…';
+  }
+}
+
 type PersonaTab = 'overview' | number;
 
 
@@ -1124,10 +1142,10 @@ export default function RunDetail() {
               aria-selected={isOverview}
               className={`persona-picker-item persona-picker-item--overview ${isOverview ? 'persona-picker-item--active' : ''}`}
               onClick={() => setActiveTab('overview')}
+              title={orchestratorDotLabel(orchestratorDot)}
             >
               <span
                 className={`persona-picker-dot ${orchestratorDotClass(orchestratorDot)}`}
-                title={orchestratorDotLabel(orchestratorDot)}
                 aria-hidden="true"
               />
               <span className="persona-picker-name">Orchestrator</span>
@@ -1167,6 +1185,7 @@ export default function RunDetail() {
                   personaNames={run.personas.map((persona) => personaName(persona.persona_id))}
                   journeyName={journeyName}
                   pending={overviewInsightsPending}
+                  pendingLabel={insightsPendingLabel(run.status, run.personas, triage)}
                 />
               </section>
               <section className="run-findings-panel">
