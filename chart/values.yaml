@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: quay.io/your-org/synthetic-users
+  repository: quay.io/rh-ee-mpk/synthetic-users
   tag: latest
   pullPolicy: IfNotPresent
 
@@ -32,7 +32,7 @@ env:
 
 agent:
   image:
-    repository: quay.io/your-org/synthetic-users
+    repository: quay.io/rh-ee-mpk/synthetic-users
     tag: latest
   resources:
     requests:

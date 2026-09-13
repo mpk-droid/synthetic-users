@@ -94,8 +94,10 @@ export default function About() {
           <div>
             <dt>Environment</dt>
             <dd>
-              A container image an agent runs in. Use environments when personas need different OS
-              or toolchains.
+              A container image an agent runs in. Extend the published base image (
+              <code>quay.io/rh-ee-mpk/synthetic-users:latest</code>
+              ) with different OS packages or tools, push to your registry, then register it here.
+              Pick an environment per persona on New Run; Default uses the base image.
             </dd>
           </div>
           <div>

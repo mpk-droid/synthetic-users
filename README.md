@@ -181,6 +181,54 @@ Ships with 4 personas designed for evaluating developer tools and templates:
 
 And a 5-phase journey: First Impressions → Setup → Running Locally → Using the Target → Deployment.
 
+
+## Custom Environments
+
+Agents run inside container images. **Default** uses the built-in Synthetic Users agent image. To simulate a different OS or toolchain, publish a variant of the base image and register it as an Environment.
+
+**Base image (published on Quay):**
+
+```
+quay.io/rh-ee-mpk/synthetic-users:latest
+```
+
+This image includes the Synthetic Users agent server (`SU_ROLE=agent`). Custom environment images must extend it — do not use an unrelated container image.
+
+### 1. Build your variant
+
+```bash
+# Start from the example
+cp examples/environment/Dockerfile ./Dockerfile.env
+# Edit: add packages, change OS tooling, etc.
+docker build -f Dockerfile.env -t quay.io/rh-ee-mpk/synthetic-users-fedora:latest .
+docker push quay.io/rh-ee-mpk/synthetic-users-fedora:latest
+```
+
+Minimal `Dockerfile`:
+
+```dockerfile
+FROM quay.io/rh-ee-mpk/synthetic-users:latest
+
+USER 0
+RUN dnf install -y --nodocs <your-packages> && dnf clean all
+USER 1001
+```
+
+### 2. Register in the UI
+
+1. Open **Environments** → **Add Environment**
+2. **Name** — e.g. `Fedora + Go`
+3. **Docker Image** — your pushed image (e.g. `quay.io/rh-ee-mpk/synthetic-users-fedora:latest`)
+4. **Description** — optional; shown in the persona prompt (e.g. `Fedora 40 with Go installed`)
+
+### 3. Use on a run
+
+On **New Run**, select personas and pick an environment per persona. Leave **Default** to use the base agent image.
+
+### Registry access
+
+The cluster or Docker host running agents must be able to **pull** the image. Public Quay repos work out of the box. Private repos need registry credentials (`docker login quay.io` locally, or an OpenShift `imagePullSecret`).
+
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -198,15 +246,15 @@ And a 5-phase journey: First Impressions → Setup → Running Locally → Using
 ### Build and Push the Image
 
 ```bash
-docker build -t quay.io/your-org/synthetic-users:latest .
-docker push quay.io/your-org/synthetic-users:latest
+docker build -t quay.io/rh-ee-mpk/synthetic-users:latest .
+docker push quay.io/rh-ee-mpk/synthetic-users:latest
 ```
 
 ### Deploy with Helm
 
 ```bash
 helm install synthetic-users ./chart \
-  --set image.repository=quay.io/your-org/synthetic-users \
+  --set image.repository=quay.io/rh-ee-mpk/synthetic-users \
   --set image.tag=latest \
   --set secrets.vertexProjectId=your-gcp-project \
   --set secrets.vertexRegion=us-east5 \

@@ -113,6 +113,13 @@ When validating workflows, UI, cluster deploys, or LLM integration — **do not*
 Seeded from `backend/app/seed/test_pack.py` on orchestrator startup.
 
 
+
+## Custom agent environments
+
+Published base image: `quay.io/rh-ee-mpk/synthetic-users:latest`
+
+Custom environments must `FROM` this image (see `examples/environment/Dockerfile`). Users register variants in **Environments**, then assign per persona on **New Run**. The orchestrator pulls `environment.image` when starting each agent container.
+
 ## Boundaries
 
 - Don't modify the engine's evidence verification logic without understanding the security implications

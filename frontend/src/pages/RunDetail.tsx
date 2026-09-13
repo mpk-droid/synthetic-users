@@ -886,7 +886,7 @@ export default function RunDetail() {
                 className="persona-picker-dot persona-picker-dot--overview"
                 aria-hidden="true"
               />
-              <span className="persona-picker-name">Overview</span>
+              <span className="persona-picker-name">Orchestrator</span>
             </button>
             {run.personas.map((p, idx) => {
               const name = personaName(p.persona_id);
@@ -919,7 +919,7 @@ export default function RunDetail() {
             <div className="persona-detail persona-detail--overview">
               <section className="run-activity-section run-activity-section--overview">
                 <PhaseActivityTerminal
-                  phaseName="Overview"
+                  phaseName="Orchestrator"
                   lines={[]}
                   isLive={false}
                   phaseState="pending"

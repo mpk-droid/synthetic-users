@@ -1,3 +1,4 @@
+[lean-ctx] no compression applied (mode=cognitive): output was not smaller than the file — returning full content (943 tok)
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getEnvironments, createEnvironment, deleteEnvironment } from '../api/client';
@@ -56,11 +57,15 @@ export default function Environments() {
           </div>
           <div className="form-group">
             <label>Docker Image</label>
+            <p className="form-hint">
+              Extend <code>quay.io/rh-ee-mpk/synthetic-users:latest</code> — see{' '}
+              <code>examples/environment/Dockerfile</code> in the repo.
+            </p>
             <input
               type="text"
               value={form.image}
               onChange={(e) => setForm((p) => ({ ...p, image: e.target.value }))}
-              placeholder="e.g., quay.io/org/su-fedora:latest"
+              placeholder="e.g., quay.io/rh-ee-mpk/synthetic-users-fedora:latest"
               required
             />
           </div>
