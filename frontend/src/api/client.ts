@@ -4,7 +4,6 @@ import type {
   PersonaUpdate,
   EnvironmentResponse,
   EnvironmentCreate,
-  GlobalFindingResponse,
   JourneyResponse,
   JourneyCreate,
   JourneyUpdate,
@@ -164,29 +163,4 @@ export function createEnvironment(data: EnvironmentCreate): Promise<EnvironmentR
 
 export function deleteEnvironment(id: string): Promise<void> {
   return request(`/api/environments/${id}`, { method: 'DELETE' });
-}
-
-// --- Global Findings ---
-
-export function getGlobalFindings(params?: {
-  repo_url?: string;
-  severity?: string;
-  status?: string;
-}): Promise<GlobalFindingResponse[]> {
-  const query = new URLSearchParams();
-  if (params?.repo_url) query.set('repo_url', params.repo_url);
-  if (params?.severity) query.set('severity', params.severity);
-  if (params?.status) query.set('status', params.status);
-  const qs = query.toString();
-  return request(`/api/findings${qs ? `?${qs}` : ''}`);
-}
-
-export function updateGlobalFindingStatus(
-  id: string,
-  status: string,
-): Promise<GlobalFindingResponse> {
-  return request(`/api/findings/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  });
 }

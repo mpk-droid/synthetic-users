@@ -58,11 +58,11 @@ export default function About() {
           </li>
           <li>
             <strong>Aggregate</strong> — The orchestrator deduplicates findings across personas,
-            scores the run, and promotes recurring issues to global findings.
+            scores the run.
           </li>
           <li>
             <strong>Review</strong> — Use the run detail view for per-persona timelines, phase
-            summaries, and findings. Track trends on the dashboard and global findings page.
+            summaries, and findings on each run detail page.
           </li>
         </ol>
       </section>

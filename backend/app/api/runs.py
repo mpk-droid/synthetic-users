@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy import delete, or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
@@ -17,7 +17,7 @@ from app.db.session import async_session, get_db
 from app.engine.runner import execute_orchestrated_run
 from app.models.environment import Environment
 from app.models.finding import Finding as FindingModel
-from app.models.finding import GlobalFinding, normalize_severity
+from app.models.finding import normalize_severity
 from app.models.journey import Journey
 from app.models.persona import Persona
 from app.models.run import (
@@ -498,14 +498,6 @@ async def delete_run(run_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     if not run:
         raise HTTPException(404, "Run not found")
 
-    await db.execute(
-        delete(GlobalFinding).where(
-            or_(
-                GlobalFinding.first_seen_run_id == run_id,
-                GlobalFinding.last_seen_run_id == run_id,
-            )
-        )
-    )
     await db.delete(run)
     await db.commit()
 

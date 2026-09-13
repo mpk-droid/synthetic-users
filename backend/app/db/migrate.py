@@ -81,7 +81,7 @@ def migrate_severity_levels(connection) -> None:
     connection.execute(
         text("CREATE TYPE severity_new AS ENUM ('critical', 'needs_attention', 'nits')")
     )
-    for table in ("findings", "global_findings"):
+    for table in ("findings",):
         connection.execute(
             text(
                 f"""
@@ -151,3 +151,13 @@ def migrate_persona_role_label(connection) -> None:
     if "expertise_level" in columns:
         connection.execute(text("ALTER TABLE personas DROP COLUMN expertise_level"))
         connection.execute(text("DROP TYPE IF EXISTS expertiselevel"))
+
+
+def migrate_drop_global_findings(connection) -> None:
+    """Drop the deprecated global_findings table."""
+    inspector = inspect(connection)
+    if "global_findings" not in inspector.get_table_names():
+        return
+
+    connection.execute(text("DROP TABLE global_findings"))
+    connection.execute(text("DROP TYPE IF EXISTS globalfindingstatus"))

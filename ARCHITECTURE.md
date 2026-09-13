@@ -18,7 +18,7 @@ ARCHITECTURE.md 151L lines:1-55
   17| │  ┌────────────────────────────────────────┐      │
   18| │  │          REST API Layer                │      │
   19| │  │  /api/personas  /api/journeys          │      │
-  20| │  │  /api/runs      /api/findings          │      │
+  20| │  │  /api/runs          │      │
   21| │  │  /api/prompts                          │      │
   22| │  └────────────────────────────────────────┘      │
   23| │                                                  │

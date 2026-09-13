@@ -279,8 +279,6 @@ helm install synthetic-users ./chart \
 | `/api/runs` | GET, POST | List / create runs |
 | `/api/runs/{id}` | GET, DELETE | Run detail / delete run |
 | `/api/runs/{id}/findings` | GET | All findings for a run |
-| `/api/findings` | GET | Global findings across all runs |
-| `/api/findings/{id}` | PATCH | Update finding status |
 | `/api/prompts/generate` | POST | Preview prompt from structured fields |
 
 Full OpenAPI docs at http://localhost:8000/docs.

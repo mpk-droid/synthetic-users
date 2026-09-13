@@ -307,8 +307,6 @@ async def finalize_run_if_complete(run_id: str) -> bool:
         ):
             return False
 
-        repo_url = run.repo_url
-
     all_findings = await _load_findings_from_db(run_id)
     any_blocked = await _check_any_blocked(run_id)
     score, rationale, _action_items, _agreement = score_run(all_findings, any_blocked)
@@ -330,8 +328,6 @@ async def finalize_run_if_complete(run_id: str) -> bool:
             run.error = None
         await db.commit()
 
-    if repo_url:
-        await _upsert_global_findings(run_id, repo_url, all_findings)
 
     logger.info("Run %s finalized with score %s", run_id, score)
     return True
@@ -422,71 +418,3 @@ async def _check_any_blocked(run_id: str) -> bool:
             .where(Run.id == run_id, RunPersona.blocked_phase.is_not(None))
         )
         return result.first() is not None
-
-
-async def _upsert_global_findings(
-    run_id: str, repo_url: str, findings: list[dict]
-) -> None:
-    """Upsert findings into the global_findings table."""
-    import hashlib
-
-    from sqlalchemy import select
-
-    from app.db.session import async_session
-    from app.models.finding import SEVERITY_RANK, GlobalFinding, normalize_severity
-
-    async with async_session() as db:
-        for f in findings:
-            raw = f"{f['category']}|{f['title']}|{f.get('file_path', '')}"
-            fingerprint = hashlib.sha256(raw.encode()).hexdigest()[:64]
-
-            result = await db.execute(
-                select(GlobalFinding).where(
-                    GlobalFinding.repo_url == repo_url,
-                    GlobalFinding.fingerprint == fingerprint,
-                )
-            )
-            existing = result.scalar_one_or_none()
-
-            persona_name = f.get("_persona", "unknown")
-
-            if existing:
-                existing.last_seen_run_id = run_id
-                existing.seen_count += 1
-                existing.description = f["description"]
-                existing.evidence = f["evidence"]
-                if f.get("suggestion"):
-                    existing.suggestion = f["suggestion"]
-
-                new_sev = normalize_severity(f["severity"])
-                if SEVERITY_RANK[new_sev] > SEVERITY_RANK[existing.severity]:
-                    existing.severity = new_sev
-
-                names = list(existing.persona_names or [])
-                if persona_name not in names:
-                    names.append(persona_name)
-                    existing.persona_names = names
-
-                from app.models.finding import GlobalFindingStatus
-
-                if existing.status == GlobalFindingStatus.fixed:
-                    existing.status = GlobalFindingStatus.open
-            else:
-                gf = GlobalFinding(
-                    repo_url=repo_url,
-                    fingerprint=fingerprint,
-                    severity=normalize_severity(f["severity"]),
-                    category=f["category"],
-                    title=f["title"],
-                    description=f["description"],
-                    evidence=f["evidence"],
-                    file_path=f.get("file_path"),
-                    suggestion=f.get("suggestion"),
-                    first_seen_run_id=run_id,
-                    last_seen_run_id=run_id,
-                    seen_count=1,
-                    persona_names=[persona_name],
-                )
-                db.add(gf)
-
-        await db.commit()

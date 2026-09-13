@@ -8,9 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import environments, findings, journeys, personas, prompts, runs
+from app.api import environments, journeys, personas, prompts, runs
 from app.db.migrate import (
     migrate_drop_finding_verified,
+    migrate_drop_global_findings,
     migrate_merge_jobs_into_runs,
     migrate_persona_role_label,
     migrate_severity_levels,
@@ -34,6 +35,8 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(migrate_drop_finding_verified)
     async with engine.begin() as conn:
         await conn.run_sync(migrate_persona_role_label)
+    async with engine.begin() as conn:
+        await conn.run_sync(migrate_drop_global_findings)
     await run_seed()
     yield
 
@@ -50,7 +53,6 @@ app.include_router(personas.router, prefix="/api/personas", tags=["personas"])
 app.include_router(journeys.router, prefix="/api/journeys", tags=["journeys"])
 app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
-app.include_router(findings.router, prefix="/api/findings", tags=["findings"])
 app.include_router(
     environments.router, prefix="/api/environments", tags=["environments (work in progress)"]
 )

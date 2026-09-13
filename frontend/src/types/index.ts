@@ -171,22 +171,3 @@ export interface RunDetailResponse {
   journey_phases: JourneyPhaseRef[];
   personas: RunPersonaDetail[];
 }
-
-export interface GlobalFindingResponse {
-  id: string;
-  repo_url: string;
-  severity: string;
-  category: string;
-  title: string;
-  description: string;
-  evidence: string;
-  file_path: string | null;
-  suggestion: string | null;
-  first_seen_run_id: string;
-  last_seen_run_id: string;
-  seen_count: number;
-  persona_names: string[];
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
