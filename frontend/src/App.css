@@ -2336,6 +2336,18 @@ h1, h2, h3, h4 {
   margin-bottom: 0.75rem;
 }
 
+.run-insights-section__header-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.run-insights-section__wip {
+  font-size: 0.7rem;
+  padding: 1px 7px;
+}
+
 .run-insights-section__toggle {
   display: inline-flex;
   align-items: center;

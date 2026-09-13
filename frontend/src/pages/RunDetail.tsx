@@ -691,21 +691,24 @@ function InsightsSection({
       className={`run-insights-section${expanded ? ' run-insights-section--expanded' : ' run-insights-section--collapsed'}`}
     >
       <div className="run-insights-section__header">
-        <button
-          type="button"
-          className="run-insights-section__toggle"
-          onClick={() => setExpanded((open) => !open)}
-          aria-expanded={expanded}
-        >
-          <span
-            className={`run-insights-section__chevron${expanded ? ' run-insights-section__chevron--open' : ''}`}
-            aria-hidden="true"
-          />
-          <span className="run-insights-section__title">Insights</span>
-          {!expanded && !pending && insights.length > 0 && (
-            <span className="run-insights-section__count">({insights.length})</span>
-          )}
-        </button>
+        <div className="run-insights-section__header-main">
+          <button
+            type="button"
+            className="run-insights-section__toggle"
+            onClick={() => setExpanded((open) => !open)}
+            aria-expanded={expanded}
+          >
+            <span
+              className={`run-insights-section__chevron${expanded ? ' run-insights-section__chevron--open' : ''}`}
+              aria-hidden="true"
+            />
+            <span className="run-insights-section__title">Insights</span>
+            {!expanded && !pending && insights.length > 0 && (
+              <span className="run-insights-section__count">({insights.length})</span>
+            )}
+          </button>
+          <span className="badge badge--wip run-insights-section__wip">Work in progress</span>
+        </div>
         {pending && (
           <span className="run-insights-section__status">{pendingLabel}</span>
         )}
