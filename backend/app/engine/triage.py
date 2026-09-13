@@ -56,6 +56,7 @@ def _build_insights(
             seen.add(key)
             insights.append(
                 {
+                    "scope": "persona",
                     "persona": persona,
                     "kind": "inaccurate_finding",
                     "message": (
@@ -77,6 +78,7 @@ def _build_insights(
                 reason = rp.blocked_reason or "No reason recorded."
                 insights.append(
                     {
+                        "scope": "persona",
                         "persona": name,
                         "kind": "blocked",
                         "message": (
@@ -94,6 +96,7 @@ def _build_insights(
                     seen.add(key)
                     insights.append(
                         {
+                            "scope": "persona",
                             "persona": name,
                             "kind": "low_signal",
                             "message": (
@@ -108,6 +111,114 @@ def _build_insights(
                     )
 
     return insights
+
+
+def _journey_insight_suggestion(kind: str) -> str:
+    if kind == "blocked_cluster":
+        return "Review journey instructions for that phase — multiple personas hit the same wall."
+    if kind == "all_blocked":
+        return (
+            "Check repo accessibility, journey phase order, and whether instructions "
+            "assume tools the repo does not provide."
+        )
+    if kind == "verification_gaps":
+        return (
+            "Tighten journey prompts to require command output or file quotes "
+            "before reporting issues."
+        )
+    if kind == "consensus_findings":
+        return "Prioritize triaged findings with multiple reporters when planning fixes."
+    return "Review journey phase instructions and expected outcomes."
+
+
+def _build_journey_insights(
+    run_personas: list[RunPersona],
+    persona_names: dict[uuid.UUID, str],
+    triaged_findings: list[dict],
+    contradicted: list[tuple[FindingCluster, str]],
+) -> list[dict]:
+    insights: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+
+    blocked_by_phase: dict[str, list[str]] = {}
+    for rp in run_personas:
+        if not rp.blocked_phase:
+            continue
+        name = persona_names.get(rp.persona_id, str(rp.persona_id))
+        blocked_by_phase.setdefault(rp.blocked_phase, []).append(name)
+
+    for phase, personas in blocked_by_phase.items():
+        if len(personas) < 2:
+            continue
+        key = ("blocked_cluster", phase)
+        if key in seen:
+            continue
+        seen.add(key)
+        persona_list = ", ".join(personas)
+        insights.append(
+            {
+                "scope": "journey",
+                "kind": "blocked_cluster",
+                "message": (
+                    f"{len(personas)} personas were blocked at {phase}: "
+                    f"{persona_list}."
+                ),
+                "suggestion": _journey_insight_suggestion("blocked_cluster"),
+            }
+        )
+
+    if run_personas and all(rp.blocked_phase for rp in run_personas):
+        key = ("all_blocked", "all")
+        if key not in seen:
+            seen.add(key)
+            insights.append(
+                {
+                    "scope": "journey",
+                    "kind": "all_blocked",
+                    "message": "Every persona was blocked before completing the journey.",
+                    "suggestion": _journey_insight_suggestion("all_blocked"),
+                }
+            )
+
+    if len(contradicted) >= 2:
+        key = ("verification_gaps", "count")
+        if key not in seen:
+            seen.add(key)
+            insights.append(
+                {
+                    "scope": "journey",
+                    "kind": "verification_gaps",
+                    "message": (
+                        f"The orchestrator contradicted {len(contradicted)} reported "
+                        "findings — personas may be inferring instead of citing evidence."
+                    ),
+                    "suggestion": _journey_insight_suggestion("verification_gaps"),
+                }
+            )
+
+    multi_persona = [
+        finding
+        for finding in triaged_findings
+        if len(finding.get("personas", [])) >= 2
+    ]
+    if len(multi_persona) >= 3:
+        key = ("consensus_findings", "count")
+        if key not in seen:
+            seen.add(key)
+            insights.append(
+                {
+                    "scope": "journey",
+                    "kind": "consensus_findings",
+                    "message": (
+                        f"{len(multi_persona)} findings were reported independently "
+                        "by multiple personas — likely real DX issues."
+                    ),
+                    "suggestion": _journey_insight_suggestion("consensus_findings"),
+                }
+            )
+
+    return insights
+
 
 
 def _cluster_to_triaged(
@@ -252,7 +363,16 @@ async def triage_run(run_id: str) -> None:
                 if client and hasattr(client, "close"):
                     await client.close()
 
-            insights = _build_insights(run.run_personas, persona_names, contradicted)
+            persona_insights = _build_insights(
+                run.run_personas, persona_names, contradicted
+            )
+            journey_insights = _build_journey_insights(
+                run.run_personas,
+                persona_names,
+                triaged_findings,
+                contradicted,
+            )
+            insights = persona_insights + journey_insights
             triaged_count = len(triaged_findings)
             insight_count = len(insights)
 

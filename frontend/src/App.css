@@ -1583,7 +1583,8 @@ h1, h2, h3, h4 {
 
 .phase-activity-terminal__status--tailing {
   color: #86efac;
-  animation: phase-activity-tailing-blink 1.2s ease-in-out infinite;
+  animation: running-dot-blink var(--running-dot-duration, 1.2s) ease-in-out infinite;
+  animation-delay: var(--running-dot-delay, 0s);
 }
 
 .phase-activity-terminal__status--completed {
@@ -1594,7 +1595,7 @@ h1, h2, h3, h4 {
   color: #f87171;
 }
 
-@keyframes phase-activity-tailing-blink {
+@keyframes running-dot-blink {
   0%,
   100% {
     opacity: 1;
@@ -1894,6 +1895,12 @@ h1, h2, h3, h4 {
   background: var(--color-green);
 }
 
+.persona-picker-dot--live,
+.phase-timeline-dot--active {
+  animation: running-dot-blink var(--running-dot-duration, 1.2s) ease-in-out infinite;
+  animation-delay: var(--running-dot-delay, 0s);
+}
+
 .persona-picker-dot--live {
   background: var(--color-green);
 }
@@ -1903,9 +1910,23 @@ h1, h2, h3, h4 {
 }
 
 .persona-picker-dot--overview {
-  background: var(--color-gray-200);
-  border: 2px solid var(--color-gray-400);
+  background: transparent;
+  border: 2px solid var(--color-yellow);
   box-sizing: border-box;
+}
+
+.persona-picker-dot--pulse {
+  animation: orchestrator-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes orchestrator-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .persona-progress-panel .run-progress {
@@ -2279,6 +2300,47 @@ h1, h2, h3, h4 {
   border-radius: 8px;
   padding: 0.875rem 1rem;
   background: var(--surface-elevated, var(--surface));
+}
+
+.run-insights-group {
+  margin-bottom: 1.25rem;
+}
+
+.run-insights-group:last-child {
+  margin-bottom: 0;
+}
+
+.run-insights-group__title {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.run-insights-personas {
+  display: grid;
+  gap: 1rem;
+}
+
+.run-insights-persona {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  background: var(--surface);
+}
+
+.run-insights-persona__name {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.run-insights-persona__empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 .run-insight-card__persona {

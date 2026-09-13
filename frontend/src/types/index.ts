@@ -171,7 +171,8 @@ export interface TriagedFinding extends FindingResponse {
 }
 
 export interface RunInsight {
-  persona: string;
+  scope?: 'persona' | 'journey';
+  persona?: string;
   kind: string;
   message: string;
   suggestion: string;

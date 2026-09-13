@@ -9,6 +9,7 @@ import type {
   RunPersonaDetail,
   FindingResponse,
   RunInsight,
+  RunTriage,
   TriagedFinding,
   VerificationStatus,
 } from '../types';
@@ -547,13 +548,53 @@ function verificationLabel(status: VerificationStatus): string {
   }
 }
 
+function isJourneyInsight(insight: RunInsight): boolean {
+  return insight.scope === 'journey';
+}
+
+function groupPersonaInsights(
+  personaNames: string[],
+  insights: RunInsight[],
+): Map<string, RunInsight[]> {
+  const grouped = new Map<string, RunInsight[]>(
+    personaNames.map((name) => [name, []]),
+  );
+  for (const insight of insights) {
+    if (isJourneyInsight(insight) || !insight.persona) {
+      continue;
+    }
+    const list = grouped.get(insight.persona) ?? [];
+    list.push(insight);
+    grouped.set(insight.persona, list);
+  }
+  return grouped;
+}
+
+function InsightCard({ insight }: { insight: RunInsight }) {
+  return (
+    <li className="run-insight-card">
+      <p className="run-insight-card__message">{insight.message}</p>
+      <p className="run-insight-card__suggestion">
+        <strong>Suggestion:</strong> {insight.suggestion}
+      </p>
+    </li>
+  );
+}
+
 function InsightsSection({
   insights,
+  personaNames,
+  journeyName,
   pending,
 }: {
   insights: RunInsight[];
+  personaNames: string[];
+  journeyName: string | null;
   pending: boolean;
 }) {
+  const journeyInsights = insights.filter(isJourneyInsight);
+  const personaInsightsByName = groupPersonaInsights(personaNames, insights);
+
   return (
     <section className="run-insights-section">
       <div className="run-insights-section__header">
@@ -566,20 +607,53 @@ function InsightsSection({
         <p className="empty-state">
           Insights will appear after all personas finish and the orchestrator verifies findings.
         </p>
-      ) : insights.length === 0 ? (
-        <p className="empty-state">No persona insights for this run.</p>
       ) : (
-        <ul className="run-insights-list">
-          {insights.map((insight, index) => (
-            <li key={`${insight.persona}-${insight.kind}-${index}`} className="run-insight-card">
-              <div className="run-insight-card__persona">{insight.persona}</div>
-              <p className="run-insight-card__message">{insight.message}</p>
-              <p className="run-insight-card__suggestion">
-                <strong>Suggestion:</strong> {insight.suggestion}
-              </p>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="run-insights-group">
+            <h5 className="run-insights-group__title">Personas</h5>
+            <div className="run-insights-personas">
+              {personaNames.map((name) => {
+                const personaInsights = personaInsightsByName.get(name) ?? [];
+                return (
+                  <div key={name} className="run-insights-persona">
+                    <h6 className="run-insights-persona__name">{name}</h6>
+                    {personaInsights.length === 0 ? (
+                      <p className="run-insights-persona__empty">
+                        No orchestrator insights for this persona.
+                      </p>
+                    ) : (
+                      <ul className="run-insights-list">
+                        {personaInsights.map((insight, index) => (
+                          <InsightCard
+                            key={`${name}-${insight.kind}-${index}`}
+                            insight={insight}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="run-insights-group">
+            <h5 className="run-insights-group__title">
+              Journey{journeyName ? ` · ${journeyName}` : ''}
+            </h5>
+            {journeyInsights.length === 0 ? (
+              <p className="run-insights-persona__empty">No journey-level insights.</p>
+            ) : (
+              <ul className="run-insights-list">
+                {journeyInsights.map((insight, index) => (
+                  <InsightCard
+                    key={`journey-${insight.kind}-${index}`}
+                    insight={insight}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
       )}
     </section>
   );
@@ -850,6 +924,62 @@ function FindingsSection({
   );
 }
 
+
+type OrchestratorDotState = 'idle' | 'live' | 'done' | 'error';
+
+function orchestratorDotState(
+  runStatus: string,
+  personas: RunPersonaDetail[],
+  triage: RunTriage | null | undefined,
+): OrchestratorDotState {
+  if (triage?.error) {
+    return 'error';
+  }
+  if (triage?.status === 'complete') {
+    return 'done';
+  }
+
+  const personasTerminal = personas.every(
+    (persona) => persona.status === 'completed' || persona.status === 'blocked',
+  );
+  const runActive = runStatus === 'pending' || runStatus === 'running';
+
+  if (
+    personasTerminal &&
+    (triage?.status === 'pending' || (!triage && !runActive))
+  ) {
+    return 'live';
+  }
+
+  return 'idle';
+}
+
+function orchestratorDotLabel(state: OrchestratorDotState): string {
+  switch (state) {
+    case 'error':
+      return 'Orchestrator triage failed';
+    case 'done':
+      return 'Orchestrator triage complete';
+    case 'live':
+      return 'Orchestrator triaging findings';
+    default:
+      return 'Orchestrator waiting for personas';
+  }
+}
+
+function orchestratorDotClass(state: OrchestratorDotState): string {
+  switch (state) {
+    case 'error':
+      return 'persona-picker-dot--error';
+    case 'done':
+      return 'persona-picker-dot--done';
+    case 'live':
+      return 'persona-picker-dot--live persona-picker-dot--pulse';
+    default:
+      return 'persona-picker-dot--overview';
+  }
+}
+
 type PersonaTab = 'overview' | number;
 
 
@@ -886,6 +1016,18 @@ export default function RunDetail() {
   });
 
   const [activeTab, setActiveTab] = useState<PersonaTab>(0);
+  const pageRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    const durationMs = 1200;
+    el.style.setProperty('--running-dot-duration', `${durationMs}ms`);
+    el.style.setProperty(
+      '--running-dot-delay',
+      `${-(performance.now() % durationMs) / 1000}s`,
+    );
+  }, [id, run?.id]);
 
   if (isLoading) return <p className="loading">Loading run details...</p>;
   if (error) return <p className="error">Failed to load run details.</p>;
@@ -923,9 +1065,10 @@ export default function RunDetail() {
   const overviewPersonaOptions = [
     ...new Set(overviewFindings.flatMap((finding) => finding.personaLabels ?? [])),
   ].sort();
+  const orchestratorDot = orchestratorDotState(run.status, run.personas, triage);
 
   return (
-    <div className="page">
+    <div className="page" ref={pageRef}>
       <div className="run-header">
         <div className="run-header-top">
           <div className="run-header-badges">
@@ -983,7 +1126,8 @@ export default function RunDetail() {
               onClick={() => setActiveTab('overview')}
             >
               <span
-                className="persona-picker-dot persona-picker-dot--overview"
+                className={`persona-picker-dot ${orchestratorDotClass(orchestratorDot)}`}
+                title={orchestratorDotLabel(orchestratorDot)}
                 aria-hidden="true"
               />
               <span className="persona-picker-name">Orchestrator</span>
@@ -1020,6 +1164,8 @@ export default function RunDetail() {
               <section className="run-insights-panel">
                 <InsightsSection
                   insights={overviewInsights}
+                  personaNames={run.personas.map((persona) => personaName(persona.persona_id))}
+                  journeyName={journeyName}
                   pending={overviewInsightsPending}
                 />
               </section>
