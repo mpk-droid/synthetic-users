@@ -19,6 +19,7 @@ import SeverityBadge from '../components/SeverityBadge';
 import RunActions from '../components/RunActions';
 import { IconExport } from '../components/NavIcons';
 import { formatElapsed } from '../utils/datetime';
+import { personaDisplayLabel, personaShortName } from '../utils/personaDisplay';
 import { exportFindingsToCsv, sanitizeFilename } from '../utils/exportFindingsCsv';
 
 type PhaseTimelineState = 'completed' | 'active' | 'pending' | 'error';
@@ -552,30 +553,117 @@ function isJourneyInsight(insight: RunInsight): boolean {
   return insight.scope === 'journey';
 }
 
+type PersonaInsightGroup = {
+  id: string;
+  label: string;
+  matchKeys: string[];
+};
+
+function buildPersonaInsightGroups(
+  runPersonas: RunPersonaDetail[],
+  allPersonas: { id: string; name: string; role_label: string }[] | undefined,
+  personaName: (personaId: string) => string,
+): PersonaInsightGroup[] {
+  return runPersonas.map((runPersona) => {
+    const catalog = allPersonas?.find((persona) => persona.id === runPersona.persona_id);
+    const name = personaName(runPersona.persona_id);
+    const label = personaDisplayLabel(name, catalog?.role_label);
+    const short = personaShortName(name);
+    return {
+      id: runPersona.persona_id,
+      label,
+      matchKeys: [name, label, short, personaShortName(label)],
+    };
+  });
+}
+
 function groupPersonaInsights(
-  personaNames: string[],
+  groups: PersonaInsightGroup[],
   insights: RunInsight[],
 ): Map<string, RunInsight[]> {
   const grouped = new Map<string, RunInsight[]>(
-    personaNames.map((name) => [name, []]),
+    groups.map((group) => [group.id, []]),
   );
   for (const insight of insights) {
     if (isJourneyInsight(insight) || !insight.persona) {
       continue;
     }
-    const list = grouped.get(insight.persona) ?? [];
+    const insightKey = personaShortName(insight.persona);
+    const group = groups.find((candidate) =>
+      candidate.matchKeys.some(
+        (key) =>
+          key === insight.persona ||
+          personaShortName(key) === insightKey ||
+          key === insightKey,
+      ),
+    );
+    if (!group) {
+      continue;
+    }
+    const list = grouped.get(group.id) ?? [];
     list.push(insight);
-    grouped.set(insight.persona, list);
+    grouped.set(group.id, list);
   }
   return grouped;
+}
+
+function formatInsightObservation(insight: RunInsight): string {
+  const persona = insight.persona;
+  let message = insight.message;
+  if (!persona) {
+    return message;
+  }
+  const reportedPrefix = `${persona} reported `;
+  if (message.startsWith(reportedPrefix)) {
+    message = `Reported ${message.slice(reportedPrefix.length)}`;
+  }
+  const blockedPrefix = `${persona} was blocked at `;
+  if (message.startsWith(blockedPrefix)) {
+    message = `Blocked at ${message.slice(blockedPrefix.length)}`;
+  }
+  const finishedPrefix = `${persona} finished without`;
+  if (message.startsWith(finishedPrefix)) {
+    message = `Finished without${message.slice(finishedPrefix.length)}`;
+  }
+  return message;
+}
+
+function formatInsightSuggestion(insight: RunInsight): string {
+  const persona = insight.persona;
+  if (!persona) {
+    return insight.suggestion;
+  }
+  return insight.suggestion
+    .replace(
+      `Tighten ${persona}'s constraints to require verbatim tool output before reporting a finding.`,
+      'Require verbatim tool output before reporting a finding.',
+    )
+    .replace(
+      `Tighten ${persona}'s constraints to require`,
+      'Require',
+    )
+    .replace(
+      `Review journey instructions for phases where ${persona} gets blocked.`,
+      'Review journey instructions for phases where this persona gets blocked.',
+    )
+    .replace(
+      `Make ${persona}'s perspective more specific so they report`,
+      "Make this persona's perspective more specific so they report",
+    )
+    .replace(
+      `Review ${persona}'s persona fields for clearer evaluation boundaries.`,
+      "Review this persona's fields for clearer evaluation boundaries.",
+    );
 }
 
 function InsightCard({ insight }: { insight: RunInsight }) {
   return (
     <li className="run-insight-card">
-      <p className="run-insight-card__message">{insight.message}</p>
+      <p className="run-insight-card__message">
+        {formatInsightObservation(insight)}
+      </p>
       <p className="run-insight-card__suggestion">
-        <strong>Suggestion:</strong> {insight.suggestion}
+        <strong>Suggestion:</strong> {formatInsightSuggestion(insight)}
       </p>
     </li>
   );
@@ -583,19 +671,19 @@ function InsightCard({ insight }: { insight: RunInsight }) {
 
 function InsightsSection({
   insights,
-  personaNames,
+  personaGroups,
   journeyName,
   pending,
   pendingLabel,
 }: {
   insights: RunInsight[];
-  personaNames: string[];
+  personaGroups: PersonaInsightGroup[];
   journeyName: string | null;
   pending: boolean;
   pendingLabel: string;
 }) {
   const journeyInsights = insights.filter(isJourneyInsight);
-  const personaInsightsByName = groupPersonaInsights(personaNames, insights);
+  const personaInsightsById = groupPersonaInsights(personaGroups, insights);
 
   return (
     <section className="run-insights-section">
@@ -614,20 +702,20 @@ function InsightsSection({
           <div className="run-insights-group">
             <h5 className="run-insights-group__title">Personas</h5>
             <div className="run-insights-personas">
-              {personaNames.map((name) => {
-                const personaInsights = personaInsightsByName.get(name) ?? [];
+              {personaGroups.map((group) => {
+                const personaInsights = personaInsightsById.get(group.id) ?? [];
                 return (
-                  <div key={name} className="run-insights-persona">
-                    <h6 className="run-insights-persona__name">{name}</h6>
+                  <div key={group.id} className="run-insights-persona">
+                    <h6 className="run-insights-persona__name">{group.label}</h6>
                     {personaInsights.length === 0 ? (
                       <p className="run-insights-persona__empty">
                         No orchestrator insights for this persona.
                       </p>
                     ) : (
-                      <ul className="run-insights-list">
+                      <ul className="run-insights-list run-insights-list--scroll">
                         {personaInsights.map((insight, index) => (
                           <InsightCard
-                            key={`${name}-${insight.kind}-${index}`}
+                            key={`${group.id}-${insight.kind}-${index}`}
                             insight={insight}
                           />
                         ))}
@@ -645,7 +733,7 @@ function InsightsSection({
             {journeyInsights.length === 0 ? (
               <p className="run-insights-persona__empty">No journey-level insights.</p>
             ) : (
-              <ul className="run-insights-list">
+              <ul className="run-insights-list run-insights-list--scroll">
                 {journeyInsights.map((insight, index) => (
                   <InsightCard
                     key={`journey-${insight.kind}-${index}`}
@@ -1183,7 +1271,11 @@ export default function RunDetail() {
               <section className="run-insights-panel">
                 <InsightsSection
                   insights={overviewInsights}
-                  personaNames={run.personas.map((persona) => personaName(persona.persona_id))}
+                  personaGroups={buildPersonaInsightGroups(
+                    run.personas,
+                    allPersonas,
+                    personaName,
+                  )}
                   journeyName={journeyName}
                   pending={overviewInsightsPending}
                   pendingLabel={insightsPendingLabel(run.status, run.personas, triage)}

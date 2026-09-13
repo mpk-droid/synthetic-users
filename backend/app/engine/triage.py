@@ -25,20 +25,17 @@ logger = logging.getLogger(__name__)
 _active_triage_runs: set[str] = set()
 
 
-def _persona_insight_suggestion(kind: str, persona: str) -> str:
+def _persona_insight_suggestion(kind: str) -> str:
     if kind == "inaccurate_finding":
-        return (
-            f"Tighten {persona}'s constraints to require verbatim tool output "
-            "before reporting a finding."
-        )
+        return "Require verbatim tool output before reporting a finding."
     if kind == "blocked":
-        return f"Review journey instructions for phases where {persona} gets blocked."
+        return "Review journey instructions for phases where this persona gets blocked."
     if kind == "low_signal":
         return (
-            f"Make {persona}'s perspective more specific so they report "
+            "Make this persona's perspective more specific so they report "
             "concrete DX issues."
         )
-    return f"Review {persona}'s persona fields for clearer evaluation boundaries."
+    return "Review this persona's fields for clearer evaluation boundaries."
 
 
 def _build_insights(
@@ -62,12 +59,10 @@ def _build_insights(
                     "persona": persona,
                     "kind": "inaccurate_finding",
                     "message": (
-                        f'{persona} reported "{title}" but the orchestrator '
+                        f'Reported "{title}" but the orchestrator '
                         f"could not confirm it: {reason}"
                     ),
-                    "suggestion": _persona_insight_suggestion(
-                        "inaccurate_finding", persona
-                    ),
+                    "suggestion": _persona_insight_suggestion("inaccurate_finding"),
                 }
             )
 
@@ -84,9 +79,9 @@ def _build_insights(
                         "persona": name,
                         "kind": "blocked",
                         "message": (
-                            f"{name} was blocked at {rp.blocked_phase}: {reason}"
+                            f"Blocked at {rp.blocked_phase}: {reason}"
                         ),
-                        "suggestion": _persona_insight_suggestion("blocked", name),
+                        "suggestion": _persona_insight_suggestion("blocked"),
                     }
                 )
 
@@ -102,13 +97,11 @@ def _build_insights(
                             "persona": name,
                             "kind": "low_signal",
                             "message": (
-                                f"{name} finished without reporting findings and left "
+                                "Finished without reporting findings and left "
                                 "little phase commentary — they may have wandered "
                                 "off-scope."
                             ),
-                            "suggestion": _persona_insight_suggestion(
-                                "low_signal", name
-                            ),
+                            "suggestion": _persona_insight_suggestion("low_signal"),
                         }
                     )
 
