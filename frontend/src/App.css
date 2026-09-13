@@ -1608,7 +1608,7 @@ h1, h2, h3, h4 {
 
 .phase-activity-terminal__status--tailing {
   color: #86efac;
-  animation: running-dot-breathe-text var(--running-dot-duration, 3.2s)
+  animation: running-dot-breathe-text var(--running-dot-duration, 2.2s)
     var(--running-dot-ease, cubic-bezier(0.45, 0.05, 0.55, 0.95)) infinite;
   animation-delay: var(--running-dot-delay, 0s);
 }
@@ -1961,7 +1961,7 @@ h1, h2, h3, h4 {
 .persona-picker-dot--live,
 .phase-timeline-dot--active {
   transform-origin: center;
-  animation: running-dot-breathe var(--running-dot-duration, 3.2s)
+  animation: running-dot-breathe var(--running-dot-duration, 2.2s)
     var(--running-dot-ease, cubic-bezier(0.45, 0.05, 0.55, 0.95)) infinite;
   animation-delay: var(--running-dot-delay, 0s);
 }
@@ -1980,7 +1980,7 @@ h1, h2, h3, h4 {
 
 .persona-picker-dot--pulse {
   transform-origin: center;
-  animation: orchestrator-dot-breathe 3.4s
+  animation: orchestrator-dot-breathe 2.2s
     cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 

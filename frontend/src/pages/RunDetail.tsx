@@ -1147,7 +1147,7 @@ export default function RunDetail() {
   useLayoutEffect(() => {
     const el = pageRef.current;
     if (!el) return;
-    const durationMs = 3200;
+    const durationMs = 2200;
     el.style.setProperty('--running-dot-duration', `${durationMs}ms`);
     el.style.setProperty(
       '--running-dot-delay',
