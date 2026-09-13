@@ -16,6 +16,6 @@ Full details in `AGENTS.md`. Critical boundaries:
 
 **Local stack:** `docker compose up --build` → http://localhost:8000 (UI + API).
 
-**Dev hot reload:** `docker compose up db -d`, backend on :8000, frontend `npm run dev` on :5173.
+**Dev hot reload:** `docker compose up db -d`, backend on :8000, frontend `npm run dev` on **:5174** (not :5173 — reserved for Gmail Buddy).
 
 **Lint:** `uv run ruff check app/` (backend), `npx tsc --noEmit` (frontend).

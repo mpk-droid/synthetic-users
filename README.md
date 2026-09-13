@@ -126,7 +126,7 @@ DATABASE_URL="postgresql+asyncpg://synthetic:synthetic@localhost:5432/synthetic_
 # Frontend (Vite dev server with API proxy)
 cd frontend
 npm install
-npm run dev    # opens on :5173, proxies /api/* to :8000
+npm run dev    # opens on :5174, proxies /api/* to :8000 (:5173 is Gmail Buddy)
 ```
 
 ## Creating Custom Personas

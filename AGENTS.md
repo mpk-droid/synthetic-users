@@ -39,7 +39,7 @@ docker compose up --build
 docker compose up db -d
 cd backend && DATABASE_URL="postgresql+asyncpg://synthetic:synthetic@localhost:5432/synthetic_users" \
   uv run uvicorn app.main:app --port 8000 --reload
-cd frontend && npm run dev       # Vite on :5173, proxies /api to :8000
+cd frontend && npm run dev       # Vite on :5174 (see Local ports below)
 
 # Frontend build
 cd frontend && npm run build     # Output in frontend/dist/
@@ -50,6 +50,18 @@ cd frontend && npx tsc --noEmit
 ```
 
 In Cursor, use **Terminal → Run Task** (`Cmd+Shift+P` → "Tasks: Run Task") for `docker: up` or `dev: full stack`.
+
+## Local ports (Gmail Buddy conflict)
+
+**Gmail Buddy** on this machine uses **:5173** (frontend) and **:3001** (backend). Do **not** use those for Synthetic Users.
+
+| Service | Port |
+|---------|------|
+| Synthetic Users (docker full stack) | **8000** (UI + API) |
+| Synthetic Users backend (dev) | **8000** |
+| Synthetic Users frontend (dev) | **5174** → proxies `/api` to :8000 |
+
+Open dev UI at http://localhost:5174 — not :5173.
 
 ## Code Style
 
