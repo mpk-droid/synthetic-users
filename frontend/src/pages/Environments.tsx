@@ -1,4 +1,3 @@
-[lean-ctx] no compression applied (mode=cognitive): output was not smaller than the file — returning full content (943 tok)
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getEnvironments, createEnvironment, deleteEnvironment } from '../api/client';
