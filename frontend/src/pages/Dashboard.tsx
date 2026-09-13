@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getJourneys, getRuns } from '../api/client';
+import { PublicRepoDisclaimerBanner } from '../components/PublicRepoDisclaimerBanner';
 import RunActions from '../components/RunActions';
 import ScoreBadge from '../components/ScoreBadge';
 import StatusBadge from '../components/StatusBadge';
@@ -43,6 +44,7 @@ export default function Dashboard() {
           New Run
         </button>
       </div>
+      <PublicRepoDisclaimerBanner />
 
       {runsQuery.isLoading && <p className="loading">Loading runs...</p>}
       {runsQuery.error && <p className="error">Failed to load runs.</p>}

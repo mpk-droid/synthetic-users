@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getPersonas, getJourneys, createRun } from '../api/client';
 import type { PersonaEnvironmentSpec } from '../types';
+import { PublicRepoDisclaimerBanner } from '../components/PublicRepoDisclaimerBanner';
 import { personaShortName } from '../utils/personaDisplay';
 
 export default function NewRun() {
@@ -73,6 +74,7 @@ export default function NewRun() {
       <div className="page-header">
         <h2>New Run</h2>
       </div>
+      <PublicRepoDisclaimerBanner />
 
       <form className="form" onSubmit={handleSubmit}>
         <div className="form-group">

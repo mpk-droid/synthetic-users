@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { apiSections, type ApiEndpoint, type HttpMethod } from '../data/apiDocs';
+import { PublicRepoDisclaimerBanner } from '../components/PublicRepoDisclaimerBanner';
 import { WorkInProgressBanner } from '../components/WorkInProgressBanner';
 
 const methodClass: Record<HttpMethod, string> = {
@@ -55,6 +56,8 @@ export default function ApiDocs() {
       <div className="page-header">
         <h2>API Docs</h2>
       </div>
+
+      <PublicRepoDisclaimerBanner />
 
       <div className="docs-intro card">
         <p>

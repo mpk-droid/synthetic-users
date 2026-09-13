@@ -1,9 +1,12 @@
+import { PublicRepoDisclaimerBanner } from '../components/PublicRepoDisclaimerBanner';
+
 export default function About() {
   return (
     <div className="page about-page">
       <div className="page-header">
         <h2>About</h2>
       </div>
+      <PublicRepoDisclaimerBanner />
 
       <section className="about-section card">
         <h3>What is Synthetic Users?</h3>

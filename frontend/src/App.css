@@ -423,6 +423,31 @@ h1, h2, h3, h4 {
   flex-shrink: 0;
 }
 
+.disclaimer-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border: 1px solid #fcd34d;
+  border-radius: var(--border-radius);
+  background: #fffbeb;
+}
+
+.disclaimer-banner p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-gray-700);
+  line-height: 1.45;
+}
+
+.badge--disclaimer {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  flex-shrink: 0;
+}
+
 .nav-link__wip {
   margin-left: auto;
   padding: 1px 6px;
@@ -1583,7 +1608,8 @@ h1, h2, h3, h4 {
 
 .phase-activity-terminal__status--tailing {
   color: #86efac;
-  animation: running-dot-blink var(--running-dot-duration, 1.2s) ease-in-out infinite;
+  animation: running-dot-breathe-text var(--running-dot-duration, 3.2s)
+    var(--running-dot-ease, cubic-bezier(0.45, 0.05, 0.55, 0.95)) infinite;
   animation-delay: var(--running-dot-delay, 0s);
 }
 
@@ -1595,14 +1621,50 @@ h1, h2, h3, h4 {
   color: #f87171;
 }
 
-@keyframes running-dot-blink {
+@keyframes running-dot-breathe {
   0%,
   100% {
-    opacity: 1;
+    opacity: 0.62;
+    transform: scale(0.9);
   }
 
   50% {
-    opacity: 0.35;
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes running-dot-breathe-text {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes orchestrator-dot-breathe {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(0.92);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .persona-picker-dot--live,
+  .phase-timeline-dot--active,
+  .phase-activity-terminal__status--tailing,
+  .persona-picker-dot--pulse {
+    animation: none;
+    transform: none;
   }
 }
 
@@ -1846,9 +1908,9 @@ h1, h2, h3, h4 {
   align-items: center;
   gap: 0.45rem;
   padding: 0.4rem 0.7rem;
-  border: 1px solid transparent;
+  border: 1px solid var(--color-gray-200);
   border-radius: var(--border-radius);
-  background: none;
+  background: var(--color-white);
   cursor: pointer;
   font: inherit;
   font-size: 1.05rem;
@@ -1859,6 +1921,7 @@ h1, h2, h3, h4 {
 
 .persona-picker-item:hover {
   background: var(--color-gray-50);
+  border-color: var(--color-gray-300);
   color: var(--color-gray-700);
 }
 
@@ -1897,7 +1960,9 @@ h1, h2, h3, h4 {
 
 .persona-picker-dot--live,
 .phase-timeline-dot--active {
-  animation: running-dot-blink var(--running-dot-duration, 1.2s) ease-in-out infinite;
+  transform-origin: center;
+  animation: running-dot-breathe var(--running-dot-duration, 3.2s)
+    var(--running-dot-ease, cubic-bezier(0.45, 0.05, 0.55, 0.95)) infinite;
   animation-delay: var(--running-dot-delay, 0s);
 }
 
@@ -1910,24 +1975,15 @@ h1, h2, h3, h4 {
 }
 
 .persona-picker-dot--overview {
-  background: transparent;
-  border: 2px solid var(--color-yellow);
-  box-sizing: border-box;
+  background: var(--color-yellow);
 }
 
 .persona-picker-dot--pulse {
-  animation: orchestrator-dot-pulse 1.4s ease-in-out infinite;
+  transform-origin: center;
+  animation: orchestrator-dot-breathe 3.4s
+    cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
-@keyframes orchestrator-dot-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
-  }
-}
 
 .persona-progress-panel .run-progress {
   border: none;
