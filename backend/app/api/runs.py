@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
+from app.api.environments import ENVIRONMENTS_WIP_DETAIL
 from app.db.session import async_session, get_db
 from app.engine.runner import execute_orchestrated_run
 from app.models.environment import Environment
@@ -409,6 +410,9 @@ async def create_run(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
+    if any(pe.environment_id for pe in data.persona_environments):
+        raise HTTPException(400, ENVIRONMENTS_WIP_DETAIL)
+
     run = Run(
         name=data.name,
         repo_url=data.repo_url,

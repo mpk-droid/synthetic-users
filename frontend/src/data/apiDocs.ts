@@ -17,6 +17,7 @@ export interface ApiSection {
   title: string;
   description: string;
   basePath?: string;
+  workInProgress?: boolean;
   endpoints: ApiEndpoint[];
 }
 
@@ -184,8 +185,9 @@ export const apiSections: ApiSection[] = [
     id: 'environments',
     title: 'Environments',
     description:
-      'Environments define container images agents can run in. Each persona in a run selects one environment (or Default).',
+      'Work in progress. List and read endpoints work today. Create, update, and delete return 503. Runs cannot assign a non-default environment yet.',
     basePath: '/api/environments',
+    workInProgress: true,
     endpoints: [
       {
         method: 'GET',
@@ -197,10 +199,10 @@ export const apiSections: ApiSection[] = [
       {
         method: 'POST',
         path: '/api/environments',
-        summary: 'Create environment',
+        summary: 'Create environment (disabled — work in progress)',
         requestBody: '{ "name": "string (required)", "image": "string (required)", "description": "string | null" }',
-        responseBody: 'EnvironmentResponse',
-        statusCodes: '201',
+        responseBody: 'Error detail',
+        statusCodes: '503 — work in progress',
       },
       {
         method: 'GET',
@@ -212,16 +214,16 @@ export const apiSections: ApiSection[] = [
       {
         method: 'PUT',
         path: '/api/environments/{env_id}',
-        summary: 'Update environment',
+        summary: 'Update environment (disabled — work in progress)',
         requestBody: 'Partial EnvironmentUpdate',
-        responseBody: 'EnvironmentResponse',
-        statusCodes: '200 · 404',
+        responseBody: 'Error detail',
+        statusCodes: '503 — work in progress',
       },
       {
         method: 'DELETE',
         path: '/api/environments/{env_id}',
-        summary: 'Delete environment',
-        statusCodes: '204 · 404',
+        summary: 'Delete environment (disabled — work in progress)',
+        statusCodes: '503 — work in progress',
       },
     ],
   },

@@ -52,7 +52,7 @@ app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
 app.include_router(findings.router, prefix="/api/findings", tags=["findings"])
 app.include_router(
-    environments.router, prefix="/api/environments", tags=["environments"]
+    environments.router, prefix="/api/environments", tags=["environments (work in progress)"]
 )
 
 

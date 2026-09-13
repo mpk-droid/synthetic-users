@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { getPersonas, getJourneys, getEnvironments, createRun } from '../api/client';
+import { getPersonas, getJourneys, createRun } from '../api/client';
 import type { PersonaEnvironmentSpec } from '../types';
 import { personaShortName } from '../utils/personaDisplay';
 
@@ -16,11 +16,6 @@ export default function NewRun() {
   const { data: journeys } = useQuery({
     queryKey: ['journeys'],
     queryFn: getJourneys,
-  });
-
-  const { data: environments } = useQuery({
-    queryKey: ['environments'],
-    queryFn: getEnvironments,
   });
 
   const [form, setForm] = useState({
@@ -42,10 +37,6 @@ export default function NewRun() {
       }
       return next;
     });
-  };
-
-  const setPersonaEnvironment = (personaId: string, environmentId: string) => {
-    setPersonaEnvs((prev) => ({ ...prev, [personaId]: environmentId }));
   };
 
   const buildPersonaEnvironments = (): PersonaEnvironmentSpec[] => {
@@ -138,9 +129,10 @@ export default function NewRun() {
         </div>
 
         <div className="form-group">
-          <label>Personas &amp; Environments</label>
+          <label>Personas</label>
           <p className="form-hint">
-            Select personas and choose an environment for each. Default uses the built-in agent image.
+            Select personas for this run. Per-persona environments are work in progress — all
+            agents use the default image for now.
           </p>
           <div className="persona-checkbox-grid">
             {personas?.map((p) => {
@@ -165,16 +157,11 @@ export default function NewRun() {
                     <label htmlFor={`env-${p.id}`}>Environment</label>
                     <select
                       id={`env-${p.id}`}
-                      value={personaEnvs[p.id] ?? ''}
-                      onChange={(e) => setPersonaEnvironment(p.id, e.target.value)}
-                      disabled={!isSelected}
+                      value=""
+                      disabled
+                      title="Environments are work in progress"
                     >
-                      <option value="">Default</option>
-                      {environments?.map((env) => (
-                        <option key={env.id} value={env.id}>
-                          {env.name}
-                        </option>
-                      ))}
+                      <option value="">Default (WIP)</option>
                     </select>
                   </div>
                 </div>

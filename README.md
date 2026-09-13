@@ -184,6 +184,8 @@ And a 5-phase journey: First Impressions → Setup → Running Locally → Using
 
 ## Custom Environments
 
+> **Work in progress** — environment CRUD and per-persona assignment are disabled in the UI and API. Runs use the default agent image. The notes below describe the planned workflow.
+
 Agents run inside container images. **Default** uses the built-in Synthetic Users agent image. To simulate a different OS or toolchain, publish a variant of the base image and register it as an Environment.
 
 **Base image (published on Quay):**

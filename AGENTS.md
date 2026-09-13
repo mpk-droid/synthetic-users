@@ -116,6 +116,8 @@ Seeded from `backend/app/seed/test_pack.py` on orchestrator startup.
 
 ## Custom agent environments
 
+**Work in progress** — do not enable environment CRUD or per-persona assignment in product flows until this ships. `POST`/`PUT`/`DELETE` `/api/environments` return `503`; runs reject non-null `environment_id`.
+
 Published base image: `quay.io/rh-ee-mpk/synthetic-users:latest`
 
 Custom environments must `FROM` this image (see `examples/environment/Dockerfile`). Users register variants in **Environments**, then assign per persona on **New Run**. The orchestrator pulls `environment.image` when starting each agent container.

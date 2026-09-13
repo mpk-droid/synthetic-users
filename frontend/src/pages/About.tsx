@@ -46,8 +46,8 @@ export default function About() {
         <h3>How a run works</h3>
         <ol className="about-steps">
           <li>
-            <strong>Configure</strong> — Create or select personas and a journey. Optionally assign
-            container environments per persona.
+            <strong>Configure</strong> — Create or select personas and a journey. Per-persona
+            environments are planned but not available yet (work in progress).
           </li>
           <li>
             <strong>Start a run</strong> — Provide a repository URL, choose personas, and start orchestration.
@@ -94,10 +94,9 @@ export default function About() {
           <div>
             <dt>Environment</dt>
             <dd>
-              A container image an agent runs in. Extend the published base image (
-              <code>quay.io/rh-ee-mpk/synthetic-users:latest</code>
-              ) with different OS packages or tools, push to your registry, then register it here.
-              Pick an environment per persona on New Run; Default uses the base image.
+              <span className="badge badge--wip">Work in progress</span>
+              Planned: per-persona container images (e.g. Mac-like vs Linux-like developer
+              laptops). Not available in the UI yet — runs use the default agent image.
             </dd>
           </div>
           <div>

@@ -1,4 +1,4 @@
-"""Environment CRUD endpoints."""
+"""Environment CRUD endpoints (work in progress)."""
 
 from __future__ import annotations
 
@@ -16,6 +16,11 @@ from app.schemas.environment import (
     EnvironmentUpdate,
 )
 
+ENVIRONMENTS_WIP_DETAIL = (
+    "Environments are work in progress. "
+    "Create, update, and delete are disabled; runs use the default agent image."
+)
+
 router = APIRouter()
 
 
@@ -31,15 +36,7 @@ async def list_environments(db: AsyncSession = Depends(get_db)):
 async def create_environment(
     data: EnvironmentCreate, db: AsyncSession = Depends(get_db)
 ):
-    env = Environment(
-        name=data.name,
-        image=data.image,
-        description=data.description,
-    )
-    db.add(env)
-    await db.commit()
-    await db.refresh(env)
-    return env
+    raise HTTPException(503, ENVIRONMENTS_WIP_DETAIL)
 
 
 @router.get("/{env_id}", response_model=EnvironmentResponse)
@@ -56,21 +53,9 @@ async def update_environment(
     data: EnvironmentUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    env = await db.get(Environment, env_id)
-    if not env:
-        raise HTTPException(404, "Environment not found")
-    update_data = data.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(env, key, value)
-    await db.commit()
-    await db.refresh(env)
-    return env
+    raise HTTPException(503, ENVIRONMENTS_WIP_DETAIL)
 
 
 @router.delete("/{env_id}", status_code=204)
 async def delete_environment(env_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    env = await db.get(Environment, env_id)
-    if not env:
-        raise HTTPException(404, "Environment not found")
-    await db.delete(env)
-    await db.commit()
+    raise HTTPException(503, ENVIRONMENTS_WIP_DETAIL)
